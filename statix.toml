@@ -1,0 +1,4 @@
+disabled = [
+	"repeated_keys"
+	"empty_list_concat"
+]
