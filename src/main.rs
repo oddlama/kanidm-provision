@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use color_eyre::{
-    eyre::{eyre, Context, OptionExt, Result},
+    eyre::{bail, eyre, Context, OptionExt, Result},
     Section,
 };
 use reqwest::{
@@ -49,7 +49,6 @@ struct KanidmClient {
     url: String,
     client: Client,
     idm_admin_headers: HeaderMap,
-    admin_headers: HeaderMap,
 }
 
 impl KanidmClient {
@@ -58,7 +57,6 @@ impl KanidmClient {
             url: url.to_string(),
             client: Client::new(),
             idm_admin_headers: HeaderMap::new(),
-            admin_headers: HeaderMap::new(),
         };
 
         let (session_id, token) = client.auth("idm_admin", &std::env::var("KANIDM_PROVISION_IDM_ADMIN_TOKEN")?)?;
@@ -68,8 +66,6 @@ impl KanidmClient {
         client
             .idm_admin_headers
             .insert("Authorization", HeaderValue::from_str(&format!("Bearer {token}"))?);
-
-        //let (session_id, token) = client.auth( "admin", &std::env::var("KANIDM_PROVISION_ADMIN_TOKEN")?);
 
         Ok(client)
     }
@@ -112,15 +108,28 @@ impl KanidmClient {
         Ok((session_id.to_str()?.to_string(), token))
     }
 
-    fn a(&self) -> Result<()> {
-        let groups_response = self
-            .client
-            .get(format!("{}/v1/group", self.url))
+    fn get_json(&self, endpoint: &str) -> Result<Value> {
+        assert!(endpoint.starts_with('/'));
+        self.client
+            .get(format!("{}{endpoint}", self.url))
             .headers(self.idm_admin_headers.clone())
             .send()?
-            .text()?;
-        println!("{}", groups_response);
-        Ok(())
+            .get_json_response()
+    }
+
+    fn groups(&self) -> Result<Vec<String>> {
+        let serde_json::Value::Array(groups) = self.get_json("/v1/group")? else {
+            bail!("Invalid json response: Toplevel is not an array");
+        };
+
+        Ok(groups
+            .iter()
+            .filter_map(|x| {
+                x.pointer("/attrs/name/0")
+                    .and_then(|x| x.as_str())
+                    .map(|x| x.to_string())
+            })
+            .collect())
     }
 }
 
@@ -128,7 +137,8 @@ fn main() -> Result<()> {
     color_eyre::install()?;
     let args = Cli::parse();
     let kanidm_client = KanidmClient::new(&args.url)?;
-    kanidm_client.a()?;
+
+    let groups = kanidm_client.groups()?;
 
     Ok(())
 }
