@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashSet, path::PathBuf};
 
 use clap::Parser;
 use color_eyre::{
@@ -10,6 +10,15 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
 };
 use serde_json::{json, Value};
+use state::State;
+
+mod state;
+
+const ENDPOINT_AUTH: &str = "/v1/auth";
+const ENDPOINT_GROUP: &str = "/v1/group";
+const ENDPOINT_PERSON: &str = "/v1/person";
+
+const PERSON_ATTRS: &[&str] = &[""];
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -73,7 +82,7 @@ impl KanidmClient {
     fn auth(&self, user: &str, password: &str) -> Result<(String, String)> {
         let init_response = self
             .client
-            .post(format!("{}/v1/auth", self.url))
+            .post(format!("{}{ENDPOINT_AUTH}", self.url))
             .json(&json!({ "step": { "init": user } }))
             .send()?
             .error_for_status()?;
@@ -85,17 +94,17 @@ impl KanidmClient {
 
         let _begin_response = self
             .client
-            .post(format!("{}/v1/auth", self.url))
-            .json(&json!({ "step": { "begin": "password" } }))
+            .post(format!("{}{ENDPOINT_AUTH}", self.url))
             .header("X-KANIDM-AUTH-SESSION-ID", session_id)
+            .json(&json!({ "step": { "begin": "password" } }))
             .send()?
             .get_json_response()?;
 
         let cred_response = self
             .client
-            .post(format!("{}/v1/auth", self.url))
-            .json(&json!({ "step": { "cred": { "password": password } } }))
+            .post(format!("{}{ENDPOINT_AUTH}", self.url))
             .header("X-KANIDM-AUTH-SESSION-ID", session_id)
+            .json(&json!({ "step": { "cred": { "password": password } } }))
             .send()?
             .get_json_response()?;
 
@@ -117,28 +126,90 @@ impl KanidmClient {
             .get_json_response()
     }
 
-    fn groups(&self) -> Result<Vec<String>> {
-        let serde_json::Value::Array(groups) = self.get_json("/v1/group")? else {
+    fn get_entities(&self, endpoint: &str) -> Result<Vec<Value>> {
+        let serde_json::Value::Array(entities) = self.get_json(endpoint)? else {
             bail!("Invalid json response: Toplevel is not an array");
         };
 
-        Ok(groups
-            .iter()
-            .filter_map(|x| {
-                x.pointer("/attrs/name/0")
-                    .and_then(|x| x.as_str())
-                    .map(|x| x.to_string())
-            })
-            .collect())
+        Ok(entities)
     }
+
+    fn update_entity_attr(&self, endpoint: &str, existing_entities: &[Value], uuid: &str, attr: &str) -> Result<()> {
+        self.client
+            .post(format!("{}{endpoint}/{uuid}/_attr/{attr}", self.url))
+            .headers(self.idm_admin_headers.clone())
+            // TODO: .json()
+            .send()?
+            .error_for_status()?;
+        Ok(())
+    }
+
+    fn create_entity(&self, endpoint: &str, entity: &str) -> Result<()> {
+        self.client
+            .post(format!("{}{endpoint}/{entity}", self.url))
+            .headers(self.idm_admin_headers.clone())
+            .json(&json!({ "attrs": { "name": [ entity ] } }))
+            .send()?
+            .error_for_status()?;
+        Ok(())
+    }
+
+    fn delete_entity(&self, endpoint: &str, entity: &str) -> Result<()> {
+        self.client
+            .delete(format!("{}{endpoint}/{entity}", self.url))
+            .headers(self.idm_admin_headers.clone())
+            .send()?
+            .error_for_status()?;
+        Ok(())
+    }
+}
+
+fn entity_names(entities: &[Value]) -> Result<HashSet<String>> {
+    Ok(entities
+        .iter()
+        .filter_map(|x| {
+            x.pointer("/attrs/name/0")
+                .and_then(|x| x.as_str())
+                .map(|x| x.to_string())
+        })
+        .collect())
 }
 
 fn main() -> Result<()> {
     color_eyre::install()?;
     let args = Cli::parse();
+    let state = State::new(args.state)?;
     let kanidm_client = KanidmClient::new(&args.url)?;
 
-    let groups = kanidm_client.groups()?;
+    let existing_groups = kanidm_client.get_entities(ENDPOINT_GROUP)?;
+    let existing_group_names = entity_names(&existing_groups)?;
+    for (name, group) in state.groups {
+        if group.present {
+            if !existing_group_names.contains(&name) {
+                kanidm_client.create_entity(ENDPOINT_GROUP, &name)?;
+            }
+
+            // TODO: Update
+        } else if existing_group_names.contains(&name) {
+            kanidm_client.delete_entity(ENDPOINT_GROUP, &name)?;
+        }
+    }
+
+    let existing_persons = kanidm_client.get_entities(ENDPOINT_PERSON)?;
+    let existing_person_names = entity_names(&existing_persons)?;
+    for (name, person) in state.persons {
+        if person.present {
+            if !existing_person_names.contains(&name) {
+                kanidm_client.create_entity(ENDPOINT_PERSON, &name)?;
+            }
+
+            for attr in PERSON_ATTRS {
+                kanidm_client.update_entity_attr(ENDPOINT_PERSON, &existing_persons, &name, attr)?;
+            }
+        } else if existing_person_names.contains(&name) {
+            kanidm_client.delete_entity(ENDPOINT_PERSON, &name)?;
+        }
+    }
 
     Ok(())
 }
