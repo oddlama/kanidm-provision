@@ -8,6 +8,7 @@ use serde::Deserialize;
 #[serde(rename_all = "camelCase")]
 pub struct Group {
     pub present: bool,
+    pub members: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -17,7 +18,6 @@ pub struct Person {
     pub display_name: String,
     pub legal_name: String,
     pub mail_addresses: Vec<String>,
-    pub groups: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
