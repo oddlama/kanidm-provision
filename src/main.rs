@@ -1,3 +1,5 @@
+#![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
+
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -180,6 +182,7 @@ impl KanidmClient {
         name: &str,
         attr: &str,
         mut values: Vec<String>,
+        append: bool,
     ) -> Result<()> {
         let entity = existing_entities
             .get(name)
@@ -208,12 +211,21 @@ impl KanidmClient {
         if current_values != values {
             log_event("Updating", &format!("{endpoint}/{name}/_attr/{attr}"));
 
-            self.client
-                .put(format!("{}{endpoint}/{uuid}/_attr/{attr}", self.url))
-                .headers(self.idm_admin_headers.clone())
-                .json(&values)
-                .send()?
-                .error_for_status()?;
+            if append {
+                self.client
+                    .post(format!("{}{endpoint}/{uuid}/_attr/{attr}", self.url))
+                    .headers(self.idm_admin_headers.clone())
+                    .json(&values)
+                    .send()?
+                    .error_for_status()?;
+            } else {
+                self.client
+                    .put(format!("{}{endpoint}/{uuid}/_attr/{attr}", self.url))
+                    .headers(self.idm_admin_headers.clone())
+                    .json(&values)
+                    .send()?
+                    .error_for_status()?;
+            }
         }
 
         Ok(())
@@ -254,6 +266,57 @@ impl KanidmClient {
                 .patch(format!("{}{ENDPOINT_OAUTH2}/{name}", self.url))
                 .headers(self.idm_admin_headers.clone())
                 .json(&json!({ "attrs": { attr: values } }))
+                .send()?
+                .error_for_status()?;
+        }
+
+        Ok(())
+    }
+
+    fn update_oauth2_map(
+        &self,
+        endpoint_name: &str,
+        attr_name: &str,
+        existing_entities: &HashMap<String, Value>,
+        name: &str,
+        group: &str,
+        mut scopes: Vec<String>,
+    ) -> Result<()> {
+        let entity = existing_entities
+            .get(name)
+            .ok_or_else(|| eyre!("Cannot update unknown oauth2 resource server {name}"))?;
+
+        let current_values: Vec<String> = match entity.pointer(&format!("/attrs/{attr_name}")) {
+            Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
+            None => vec![],
+            other => bail!("Invalid map value for {attr_name} of entity {ENDPOINT_OAUTH2}/{name}: {other:?}"),
+        };
+
+        let mut current_values: Vec<_> = current_values
+            .iter()
+            .find(|x| x.starts_with(&format!("{}@", group)))
+            .map(|x| {
+                x.split_once(": ")
+                    .map(|x| x.1)
+                    .unwrap_or(x)
+                    .trim_start_matches('{')
+                    .trim_end_matches('}')
+                    .split(", ")
+                    .map(|e| e.trim_matches('"'))
+                    .collect()
+            })
+            .unwrap_or_else(Vec::new);
+
+        current_values.sort_unstable();
+        scopes.sort_unstable();
+
+        if current_values != scopes {
+            log_event("Updating", &format!("{ENDPOINT_OAUTH2}/{name} {attr_name}/{group}"));
+
+            self.client
+                .post(format!("{}{ENDPOINT_OAUTH2}/{name}/{endpoint_name}/{group}", self.url))
+                .headers(self.idm_admin_headers.clone())
+                .json(&scopes)
                 .send()?
                 .error_for_status()?;
         }
@@ -305,7 +368,7 @@ fn all_tracked_entities(state: &State) -> Result<Vec<String>> {
 macro_rules! update_attrs {
     ($kanidm_client:expr, $endpoint:expr, $existing:expr, $name:expr, [ $( $key:literal : $value:expr ),*, ]) => {
         $(
-            $kanidm_client.update_entity_attrs($endpoint, $existing, $name, $key, $value)?;
+            $kanidm_client.update_entity_attrs($endpoint, $existing, $name, $key, $value, false)?;
         )*
     };
 }
@@ -426,9 +489,30 @@ fn sync_oauth2s(
                 "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
             ]);
 
-            // TODO scope maps
-            // TODO sub scope maps
+            for (group, scopes) in &oauth2.scope_maps {
+                kanidm_client.update_oauth2_map(
+                    "_scopemap",
+                    "oauth2_rs_scope_map",
+                    existing_oauth2s,
+                    name,
+                    group,
+                    scopes.clone(),
+                )?;
+            }
+
+            for (group, scopes) in &oauth2.supplementary_scope_maps {
+                kanidm_client.update_oauth2_map(
+                    "_sup_scopemap",
+                    "oauth2_rs_sup_scope_map",
+                    existing_oauth2s,
+                    name,
+                    group,
+                    scopes.clone(),
+                )?;
+            }
+
             // TODO claim maps
+            // TODO secret
         } else if existing_oauth2s.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_OAUTH2, name)?;
         }
@@ -468,38 +552,6 @@ fn setup_provision_tracking(
     };
 
     Ok(HashSet::from_iter(current_values.drain(0..)))
-}
-
-fn track_provisioned_entities(
-    kanidm_client: &KanidmClient,
-    existing_groups: &HashMap<String, Value>,
-    tracked_entities: &Vec<String>,
-) -> Result<()> {
-    log_status("Tracking provisioned entities");
-    log_event(
-        "Updating",
-        &format!("members on {ENDPOINT_GROUP}/{PROVISION_TRACKING_GROUP}"),
-    );
-
-    let entity = existing_groups
-        .get(PROVISION_TRACKING_GROUP)
-        .ok_or_else(|| eyre!("Cannot update unknown entity {PROVISION_TRACKING_GROUP} in {ENDPOINT_GROUP}"))?;
-
-    let uuid = entity
-        .pointer("/attrs/uuid/0")
-        .and_then(|x| x.as_str())
-        .map(|x| x.to_string())
-        .ok_or_else(|| eyre!("Could not find uuid for {PROVISION_TRACKING_GROUP}"))?;
-
-    kanidm_client
-        .client
-        .post(format!("{}{ENDPOINT_GROUP}/{uuid}/_attr/member", kanidm_client.url))
-        .headers(kanidm_client.idm_admin_headers.clone())
-        .json(tracked_entities)
-        .send()?
-        .error_for_status()?;
-
-    Ok(())
 }
 
 fn remove_orphaned_entities(
@@ -565,7 +617,15 @@ fn main() -> Result<()> {
     // Always add to this group's member, and never overwrite so
     // we can be sure to never lose any entries in case of unexpected errors.
     // Members can thus only be removed by removing the entity itself.
-    track_provisioned_entities(&kanidm_client, &existing_groups, &tracked_entities)?;
+    log_status("Tracking provisioned entities");
+    kanidm_client.update_entity_attrs(
+        ENDPOINT_GROUP,
+        &existing_groups,
+        PROVISION_TRACKING_GROUP,
+        "member",
+        tracked_entities.clone(),
+        true,
+    )?;
 
     if args.auto_remove {
         // Now, remove the orphaned entities that were in the tracking group but
