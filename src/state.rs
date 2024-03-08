@@ -24,6 +24,18 @@ pub struct Person {
 #[serde(rename_all = "camelCase")]
 pub struct Oauth2System {
     pub present: bool,
+    pub display_name: String,
+    pub basic_secret_file: Option<String>,
+    pub origin_url: String,
+    pub origin_landing: Option<String>,
+    #[serde(default)]
+    pub allow_insecure_client_disable_pkce: bool,
+    #[serde(default)]
+    pub prefer_short_username: bool,
+    #[serde(default)]
+    pub scope_maps: HashMap<String, Vec<String>>,
+    #[serde(default)]
+    pub supplementary_scope_maps: HashMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
