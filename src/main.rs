@@ -6,6 +6,7 @@ use std::{
 use clap::Parser;
 use color_eyre::{
     eyre::{bail, eyre, Context, OptionExt, Result},
+    owo_colors::OwoColorize,
     Section,
 };
 use reqwest::{
@@ -22,6 +23,14 @@ const ENDPOINT_GROUP: &str = "/v1/group";
 const ENDPOINT_PERSON: &str = "/v1/person";
 const ENDPOINT_OAUTH2: &str = "/v1/oauth2";
 const PROVISION_TRACKING_GROUP: &str = "ext_idm_provisioned_entities";
+
+fn log_status(message: &str) {
+    println!("{}", message.blue().bold());
+}
+
+fn log_event(event: &str, message: &str) {
+    println!("{:>12} {}", event.green().bold(), message);
+}
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -147,7 +156,7 @@ impl KanidmClient {
             .get_json_response()
     }
 
-    fn get_entities(&self, endpoint: &str, name_attr: &str) -> Result<HashMap<String, Value>> {
+    fn get_entities(&self, endpoint: &str) -> Result<HashMap<String, Value>> {
         let serde_json::Value::Array(entities) = self.get_json(endpoint)? else {
             bail!("Invalid json response: Toplevel is not an array");
         };
@@ -156,7 +165,7 @@ impl KanidmClient {
             .iter()
             .filter_map(|e| {
                 let name = e
-                    .pointer(&format!("/attrs/{name_attr}/0"))
+                    .pointer("/attrs/name/0")
                     .and_then(|x| x.as_str())
                     .map(|x| x.to_string());
                 name.map(|x| (x, e.clone()))
@@ -197,7 +206,7 @@ impl KanidmClient {
         }
 
         if current_values != values {
-            println!("Updating {attr} on {endpoint}/{name}");
+            log_event("Updating", &format!("{endpoint}/{name}/_attr/{attr}"));
 
             self.client
                 .put(format!("{}{endpoint}/{uuid}/_attr/{attr}", self.url))
@@ -211,7 +220,7 @@ impl KanidmClient {
     }
 
     fn create_entity(&self, endpoint: &str, name: &str, payload: &Value) -> Result<()> {
-        println!("Creating {endpoint}/{name}");
+        log_event("Creating", &format!("{endpoint}/{name}"));
         self.client
             .post(format!("{}{endpoint}", self.url))
             .headers(self.idm_admin_headers.clone())
@@ -231,11 +240,6 @@ impl KanidmClient {
         let entity = existing_entities
             .get(name)
             .ok_or_else(|| eyre!("Cannot update unknown oauth2 resource server {name}"))?;
-        let uuid = entity
-            .pointer("/attrs/uuid/0")
-            .and_then(|x| x.as_str())
-            .map(|x| x.to_string())
-            .ok_or_else(|| eyre!("Could not find uuid for {name}"))?;
 
         let current_values: Vec<String> = match entity.pointer(&format!("/attrs/{attr}")) {
             Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
@@ -244,12 +248,12 @@ impl KanidmClient {
         };
 
         if current_values != values {
-            println!("Updating {attr} on {ENDPOINT_OAUTH2}/{name}");
+            log_event("Updating", &format!("{ENDPOINT_OAUTH2}/{name} {attr}"));
 
             self.client
-                .patch(format!("{}{ENDPOINT_OAUTH2}/{uuid}", self.url))
+                .patch(format!("{}{ENDPOINT_OAUTH2}/{name}", self.url))
                 .headers(self.idm_admin_headers.clone())
-                .json(&values)
+                .json(&json!({ "attrs": { attr: values } }))
                 .send()?
                 .error_for_status()?;
         }
@@ -258,7 +262,7 @@ impl KanidmClient {
     }
 
     fn delete_entity(&self, endpoint: &str, entity: &str) -> Result<()> {
-        println!("Deleting {endpoint}/{entity}");
+        log_event("Deleting", &format!("{endpoint}/{entity}"));
         self.client
             .delete(format!("{}{endpoint}/{entity}", self.url))
             .headers(self.idm_admin_headers.clone())
@@ -324,7 +328,7 @@ fn sync_groups(
     existing_groups: &mut HashMap<String, Value>,
     preexisting_entity_names: &HashSet<String>,
 ) -> Result<()> {
-    println!("Syncing groups");
+    log_status("Syncing groups");
     for (name, group) in &state.groups {
         if group.present {
             if !existing_groups.contains_key(name) {
@@ -334,7 +338,7 @@ fn sync_groups(
 
                 kanidm_client.create_entity(ENDPOINT_GROUP, name, &json!({ "attrs": { "name": [ name ] } }))?;
                 existing_groups.clear();
-                existing_groups.extend(kanidm_client.get_entities(ENDPOINT_GROUP, "name")?);
+                existing_groups.extend(kanidm_client.get_entities(ENDPOINT_GROUP)?);
             }
         } else if existing_groups.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_GROUP, name)?;
@@ -350,7 +354,7 @@ fn sync_persons(
     existing_persons: &mut HashMap<String, Value>,
     preexisting_entity_names: &HashSet<String>,
 ) -> Result<()> {
-    println!("Syncing persons");
+    log_status("Syncing persons");
     for (name, person) in &state.persons {
         if person.present {
             if !existing_persons.contains_key(name) {
@@ -367,7 +371,7 @@ fn sync_persons(
                     }}),
                 )?;
                 existing_persons.clear();
-                existing_persons.extend(kanidm_client.get_entities(ENDPOINT_PERSON, "name")?);
+                existing_persons.extend(kanidm_client.get_entities(ENDPOINT_PERSON)?);
             }
 
             update_attrs!(kanidm_client, ENDPOINT_PERSON, &existing_persons, &name, [
@@ -389,7 +393,7 @@ fn sync_oauth2s(
     existing_oauth2s: &mut HashMap<String, Value>,
     preexisting_entity_names: &HashSet<String>,
 ) -> Result<()> {
-    println!("syncing oauth2 resource servers");
+    log_status("Syncing oauth2 resource servers");
     for (name, oauth2) in &state.systems.oauth2 {
         if oauth2.present {
             if !existing_oauth2s.contains_key(name) {
@@ -401,13 +405,17 @@ fn sync_oauth2s(
                     &format!("{ENDPOINT_OAUTH2}/_basic"),
                     name,
                     &json!({ "attrs": {
-                        "oauth2_rs_name": [name],
+                        "name": [name],
                         "oauth2_rs_origin": [oauth2.origin_url],
                         "displayname": [oauth2.display_name],
                     }}),
                 )?;
                 existing_oauth2s.clear();
-                existing_oauth2s.extend(kanidm_client.get_entities(ENDPOINT_OAUTH2, "oauth2_rs_name")?);
+                existing_oauth2s.extend(kanidm_client.get_entities(ENDPOINT_OAUTH2)?);
+            }
+
+            if !oauth2.origin_url.ends_with('/') {
+                println!("{}", format!("WARN: origin_url ({}) of oauth2 resource server '{name}' should end in a slash! This will lead to unnecessary updates.", oauth2.origin_url).yellow().bold());
             }
 
             update_oauth2!(kanidm_client, &existing_oauth2s, &name, [
@@ -417,6 +425,10 @@ fn sync_oauth2s(
                 "oauth2_allow_insecure_client_disable_pkce": Some(oauth2.allow_insecure_client_disable_pkce.to_string()),
                 "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
             ]);
+
+            // TODO scope maps
+            // TODO sub scope maps
+            // TODO claim maps
         } else if existing_oauth2s.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_OAUTH2, name)?;
         }
@@ -436,7 +448,7 @@ fn setup_provision_tracking(
             &json!({ "attrs": { "name": [ PROVISION_TRACKING_GROUP ] } }),
         )?;
         existing_groups.clear();
-        existing_groups.extend(kanidm_client.get_entities(ENDPOINT_GROUP, "name")?);
+        existing_groups.extend(kanidm_client.get_entities(ENDPOINT_GROUP)?);
     }
 
     let entity = existing_groups.get(PROVISION_TRACKING_GROUP).ok_or_else(|| {
@@ -444,7 +456,11 @@ fn setup_provision_tracking(
     })?;
 
     let mut current_values = match entity.pointer("/attrs/member") {
-        Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
+        Some(Value::Array(x)) => x
+            .iter()
+            .filter_map(|x| x.as_str())
+            .map(|x| x.split_once('@').map(|x| x.0).unwrap_or(x).to_string())
+            .collect(),
         None => vec![],
         other => {
             bail!("Invalid attr value for members of entity {ENDPOINT_GROUP}/{PROVISION_TRACKING_GROUP}: {other:?}")
@@ -459,8 +475,11 @@ fn track_provisioned_entities(
     existing_groups: &HashMap<String, Value>,
     tracked_entities: &Vec<String>,
 ) -> Result<()> {
-    println!("Tracking provisioned entities");
-    println!("Updating members on {ENDPOINT_GROUP}/{PROVISION_TRACKING_GROUP}");
+    log_status("Tracking provisioned entities");
+    log_event(
+        "Updating",
+        &format!("members on {ENDPOINT_GROUP}/{PROVISION_TRACKING_GROUP}"),
+    );
 
     let entity = existing_groups
         .get(PROVISION_TRACKING_GROUP)
@@ -483,17 +502,42 @@ fn track_provisioned_entities(
     Ok(())
 }
 
+fn remove_orphaned_entities(
+    kanidm_client: &KanidmClient,
+    provisioned_entities: &HashSet<String>,
+    existing_groups: &HashMap<String, Value>,
+    existing_persons: &HashMap<String, Value>,
+    existing_oauth2s: &HashMap<String, Value>,
+    tracked_entities: &[String],
+) -> Result<()> {
+    log_status("Removing orphaned entities");
+    // Remove any entities that are no longer provisioned
+    let tracked_entities = HashSet::from_iter(tracked_entities.iter().cloned());
+    let orphaned_entities = provisioned_entities.difference(&tracked_entities);
+    for orphan in orphaned_entities {
+        if existing_groups.contains_key(orphan) {
+            kanidm_client.delete_entity(ENDPOINT_GROUP, orphan)?;
+        } else if existing_persons.contains_key(orphan) {
+            kanidm_client.delete_entity(ENDPOINT_PERSON, orphan)?;
+        } else if existing_oauth2s.contains_key(orphan) {
+            kanidm_client.delete_entity(ENDPOINT_OAUTH2, orphan)?;
+        }
+    }
+
+    Ok(())
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
     let args = Cli::parse();
     let state = State::new(args.state)?;
-    let mut tracked_entities = all_tracked_entities(&state)?;
+    let tracked_entities = all_tracked_entities(&state)?;
     let kanidm_client = KanidmClient::new(&args.url, args.accept_invalid_certs)?;
 
     // Retrieve known entities so we can check for duplicates dynamically
-    let mut existing_groups = kanidm_client.get_entities(ENDPOINT_GROUP, "name")?;
-    let mut existing_persons = kanidm_client.get_entities(ENDPOINT_PERSON, "name")?;
-    let mut existing_oauth2s = kanidm_client.get_entities(ENDPOINT_OAUTH2, "oauth2_rs_name")?;
+    let mut existing_groups = kanidm_client.get_entities(ENDPOINT_GROUP)?;
+    let mut existing_persons = kanidm_client.get_entities(ENDPOINT_PERSON)?;
+    let mut existing_oauth2s = kanidm_client.get_entities(ENDPOINT_OAUTH2)?;
 
     let mut preexisting_entity_names = HashSet::new();
     preexisting_entity_names.extend(existing_groups.keys().cloned());
@@ -508,7 +552,7 @@ fn main() -> Result<()> {
     sync_oauth2s(&state, &kanidm_client, &mut existing_oauth2s, &preexisting_entity_names)?;
 
     // Sync group members
-    println!("syncing group members");
+    log_status("Syncing group members");
     for (name, group) in &state.groups {
         if group.present {
             update_attrs!(kanidm_client, ENDPOINT_GROUP, &existing_groups, &name, [
@@ -524,19 +568,16 @@ fn main() -> Result<()> {
     track_provisioned_entities(&kanidm_client, &existing_groups, &tracked_entities)?;
 
     if args.auto_remove {
-        println!("Removing orphaned entities");
-        // Remove any entities that are no longer provisioned
-        let tracked_entities = HashSet::from_iter(tracked_entities.drain(0..));
-        let orphaned_entities = provisioned_entities.difference(&tracked_entities);
-        for orphan in orphaned_entities {
-            if existing_groups.contains_key(orphan) {
-                kanidm_client.delete_entity(ENDPOINT_GROUP, orphan)?;
-            } else if existing_persons.contains_key(orphan) {
-                kanidm_client.delete_entity(ENDPOINT_PERSON, orphan)?;
-            } else if existing_oauth2s.contains_key(orphan) {
-                kanidm_client.delete_entity(ENDPOINT_OAUTH2, orphan)?;
-            }
-        }
+        // Now, remove the orphaned entities that were in the tracking group but
+        // no longer exist in our state description.
+        remove_orphaned_entities(
+            &kanidm_client,
+            &provisioned_entities,
+            &existing_groups,
+            &existing_persons,
+            &existing_oauth2s,
+            &tracked_entities,
+        )?;
     }
 
     Ok(())
