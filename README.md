@@ -1,4 +1,4 @@
-[About](#kanidm-provision) \| [Usage](#usage) \| [JSON Schema](#json-schema)
+[About](#-kanidm-provisioning-tool) \| [Usage](#usage) \| [JSON Schema](#json-schema)
 
 ## 🦀 Kanidm Provisioning Tool
 
@@ -10,26 +10,31 @@ A optional patch for kanidm is provided that additionally allows you to provisio
 Currently this supports the following operations which should suffice for basic SSO and OIDC needs.
 PRs are of course welcome!
 
-Category | Provisioning Feature | Supported
----|---|---
-Groups | |
-  | | Create/delete | ✅
-  | | Members | ✅
-  | | Unix attributes | ❌
-Persons | |
-  | | Create/delete | ✅
-  | | Attributes (displayname, legalname, mail) | ✅
-  | | Credentials | ❌
-  | | SSH | ❌
-  | | Unix attributes | ❌
-  | | Radius | ❌
-Oauth2 Resource Server | |
-  | | Create/delete | ✅
-  | | Attributes (origin url, origin landing, pkce enable, prefer short username) | ✅
-  | | Basic secret | ✅ (Requires patch, [see below](#provisioning-oauth2-basic-secrets))
-  | | Scope maps | ✅
-  | | Supplementary scope maps | ✅
-  | | Claim maps | ✅
+| | Provisioning Feature
+---|---
+| |
+| | **Groups**
+| ✅ | Create/delete
+| ✅ | Members
+| ❌ | Unix attributes
+| |
+| | **Persons**
+| ✅ | Create/delete
+| ✅ | Attributes (displayname, legalname, mail)
+| ❌ | Credentials
+| ❌ | SSH
+| ❌ | Unix attributes
+| ❌ | Radius
+| |
+| | **Oauth2**
+| ✅ | Create/delete
+| ✅ | Attributes (origin url, origin landing, pkce enable, prefer short username)
+| ✅* | Basic secret
+| ✅ | Scope maps
+| ✅ | Supplementary scope maps
+| ✅ | Claim maps
+
+(*): Requires patch, [see below](#provisioning-oauth2-basic-secrets).
 
 ## Usage
 
