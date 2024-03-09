@@ -12,24 +12,24 @@ PRs are of course welcome!
 
 Category | Provisioning Feature | Supported
 ---|---|---
-Groups ||
-  | Create/delete | ✅
-  | Members | ✅
-  | Unix attributes | ❌
-Persons ||
-  | Create/delete | ✅
-  | Attributes (displayname, legalname, mail) | ✅
-  | Credentials | ❌
-  | SSH | ❌
-  | Unix attributes | ❌
-  | Radius | ❌
-Oauth2 Resource Server ||
-  | Create/delete | ✅
-  | Attributes (origin url, origin landing, pkce enable, prefer short username) | ✅
-  | Basic secret | ✅ (Requires patch, [see below](#provisioning-oauth2-basic-secrets))
-  | Scope maps | ✅
-  | Supplementary scope maps | ✅
-  | Claim maps | ✅
+Groups | |
+  | | Create/delete | ✅
+  | | Members | ✅
+  | | Unix attributes | ❌
+Persons | |
+  | | Create/delete | ✅
+  | | Attributes (displayname, legalname, mail) | ✅
+  | | Credentials | ❌
+  | | SSH | ❌
+  | | Unix attributes | ❌
+  | | Radius | ❌
+Oauth2 Resource Server | |
+  | | Create/delete | ✅
+  | | Attributes (origin url, origin landing, pkce enable, prefer short username) | ✅
+  | | Basic secret | ✅ (Requires patch, [see below](#provisioning-oauth2-basic-secrets))
+  | | Scope maps | ✅
+  | | Supplementary scope maps | ✅
+  | | Claim maps | ✅
 
 ## Usage
 
