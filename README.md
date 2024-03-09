@@ -91,11 +91,11 @@ This is the schema consumed by this application
       # Whether the group should be present or absent.
       "present": true,
       # The exhaustive list of group members.
-	  "members": [
-	    "person1",
-	    "person2",
-		"group1"
-	  ]
+      "members": [
+        "person1",
+        "person2",
+        "group1"
+      ]
     },
     # ...
   },
@@ -153,35 +153,35 @@ This is the schema consumed by this application
         # Optional. Defaults to true.
         # If true, any claim maps found on the resource server that are
         # not explicitly specified in here will be removed.
-		"removeOrphanedClaimMaps": true,
+        "removeOrphanedClaimMaps": true,
         # Optional.
         # Claim maps will add a new claim with values depending on the
         # kanidm groups of the authenticating party.
         "claimMaps": {
           # One entry per claim, the key is the new claim name.
-		  "groups": {
+          "groups": {
             # Required.
             # The strategy used to join multiple values. One of:
             #   - "ssv" (space separated: one two three)
             #   - "csv" (comma separated: one,two,three)
             #   - "array" (array notation: ["one", "two", "three"])
-			"joinType": "array",
+            "joinType": "array",
             # Assign values based on kanidm groups.
             # At least one entry is required.
-			"claimsByGroup": {
-			  "group1": [
-			    "user"
-			  ],
-			  "group2": [
-			    "user",
-			    "important_user"
-			  ],
-			  "group3": [
-			    "admin"
-			  ]
+            "claimsByGroup": {
+              "group1": [
+                "user"
+              ],
+              "group2": [
+                "user",
+                "important_user"
+              ],
+              "group3": [
+                "admin"
+              ]
               # ...
-			}
-		  }
+            }
+          }
           # ...
         }
       }
