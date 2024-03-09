@@ -7,6 +7,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Group {
+    #[serde(default = "default_true")]
     pub present: bool,
     pub members: Vec<String>,
 }
@@ -14,6 +15,7 @@ pub struct Group {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Person {
+    #[serde(default = "default_true")]
     pub present: bool,
     pub display_name: String,
     pub legal_name: String,
@@ -30,20 +32,21 @@ pub struct ClaimMap {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Oauth2System {
+    #[serde(default = "default_true")]
     pub present: bool,
     pub display_name: String,
     pub basic_secret_file: Option<String>,
     pub origin_url: String,
     pub origin_landing: Option<String>,
-    #[serde(default)]
+    #[serde(default = "default_false")]
     pub allow_insecure_client_disable_pkce: bool,
-    #[serde(default)]
+    #[serde(default = "default_false")]
     pub prefer_short_username: bool,
     #[serde(default)]
     pub scope_maps: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub supplementary_scope_maps: HashMap<String, Vec<String>>,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub remove_orphaned_claim_maps: bool,
     #[serde(default)]
     pub claim_maps: HashMap<String, ClaimMap>,
@@ -61,6 +64,13 @@ pub struct State {
     pub groups: HashMap<String, Group>,
     pub persons: HashMap<String, Person>,
     pub systems: Systems,
+}
+
+fn default_false() -> bool {
+    false
+}
+fn default_true() -> bool {
+    true
 }
 
 impl State {

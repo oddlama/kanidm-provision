@@ -124,17 +124,16 @@ impl KanidmClient {
         Ok((session_id.to_str()?.to_string(), token))
     }
 
-    pub fn get_json(&self, endpoint: &str) -> Result<Value> {
+    pub fn get_entities(&self, endpoint: &str) -> Result<HashMap<String, Value>> {
         assert!(endpoint.starts_with('/'));
-        self.client
+
+        let Value::Array(entities) = self
+            .client
             .get(format!("{}{endpoint}", self.url))
             .headers(self.idm_admin_headers.clone())
             .send()?
-            .get_json_response()
-    }
-
-    pub fn get_entities(&self, endpoint: &str) -> Result<HashMap<String, Value>> {
-        let serde_json::Value::Array(entities) = self.get_json(endpoint)? else {
+            .get_json_response()?
+        else {
             bail!("Invalid json response: Toplevel is not an array");
         };
 
@@ -377,6 +376,38 @@ impl KanidmClient {
                 .json(&join_type)
                 .send()?
                 .error_for_status()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn update_oauth2_basic_secret(&self, name: &str, secret_file: &str) -> Result<()> {
+        let current_secret = self
+            .client
+            .get(format!("{}{ENDPOINT_OAUTH2}/{name}/_basic_secret", self.url))
+            .headers(self.idm_admin_headers.clone())
+            .send()?
+            .get_json_response()?;
+
+        let current_secret = current_secret
+            .as_str()
+            .ok_or_eyre("Invalid basic secret response: Not a string")?;
+
+        let desired_secret =
+            std::fs::read_to_string(secret_file).wrap_err_with(|| format!("failed to read {:?}", secret_file))?;
+        let desired_secret = desired_secret.trim();
+
+        if current_secret != desired_secret {
+            log_event("Updating", &format!("{ENDPOINT_OAUTH2}/{name}/_basic_secret"));
+
+            self
+                .client
+                .patch(format!("{}{ENDPOINT_OAUTH2}/{name}/_basic_secret", self.url))
+                .headers(self.idm_admin_headers.clone())
+                .json(desired_secret)
+                .send()
+                .wrap_err("Failed to update oauth2 basic secret! Did you compile kanidm with the necessary patch? Refer to https://github.com/oddlama/kanidm-provision for more information.")?
+                .get_json_response()?;
         }
 
         Ok(())

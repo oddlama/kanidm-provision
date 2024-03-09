@@ -1,0 +1,169 @@
+diff --git a/server/core/src/actors/v1_write.rs b/server/core/src/actors/v1_write.rs
+index 623901ec1..125adb274 100644
+--- a/server/core/src/actors/v1_write.rs
++++ b/server/core/src/actors/v1_write.rs
+@@ -355,6 +355,48 @@ impl QueryServerWriteV1 {
+             .and_then(|_| idms_prox_write.commit().map(|_| ()))
+     }
+ 
++    #[instrument(
++        level = "info",
++        skip_all,
++        fields(uuid = ?eventid)
++    )]
++    pub async fn handle_oauth2_basic_secret_write(
++        &self,
++        client_auth_info: ClientAuthInfo,
++        filter: Filter<FilterInvalid>,
++        new_secret: String,
++        eventid: Uuid,
++    ) -> Result<(), OperationError> {
++        // Given a protoEntry, turn this into a modification set.
++        let ct = duration_from_epoch_now();
++        let mut idms_prox_write = self.idms.proxy_write(ct).await;
++        let ident = idms_prox_write
++            .validate_client_auth_info_to_ident(client_auth_info, ct)
++            .map_err(|e| {
++                admin_error!(err = ?e, "Invalid identity");
++                e
++            })?;
++
++        let modlist = ModifyList::new_purge_and_set(
++            Attribute::OAuth2RsBasicSecret,
++            Value::SecretValue(new_secret),
++        );
++
++        let mdf =
++            ModifyEvent::from_internal_parts(ident, &modlist, &filter, &idms_prox_write.qs_write)
++                .map_err(|e| {
++                admin_error!(err = ?e, "Failed to begin modify during handle_oauth2_basic_secret_write");
++                e
++            })?;
++
++        trace!(?mdf, "Begin modify event");
++
++        idms_prox_write
++            .qs_write
++            .modify(&mdf)
++            .and_then(|_| idms_prox_write.commit())
++    }
++
+     #[instrument(
+         level = "info",
+         skip_all,
+diff --git a/server/core/src/https/v1.rs b/server/core/src/https/v1.rs
+index 7720aa6c5..6af1d631b 100644
+--- a/server/core/src/https/v1.rs
++++ b/server/core/src/https/v1.rs
+@@ -4,7 +4,7 @@ use axum::extract::{Path, State};
+ use axum::http::{HeaderMap, HeaderValue};
+ use axum::middleware::from_fn;
+ use axum::response::{IntoResponse, Response};
+-use axum::routing::{delete, get, post, put};
++use axum::routing::{delete, get, post, put, patch};
+ use axum::{Extension, Json, Router};
+ use compact_jwt::{Jws, JwsSigner};
+ use kanidm_proto::constants::uri::V1_AUTH_VALID;
+@@ -2950,6 +2950,10 @@ pub(crate) fn route_setup(state: ServerState) -> Router<ServerState> {
+             "/v1/oauth2/:rs_name/_basic_secret",
+             get(super::v1_oauth2::oauth2_id_get_basic_secret),
+         )
++        .route(
++            "/v1/oauth2/:rs_name/_basic_secret",
++            patch(super::v1_oauth2::oauth2_id_patch_basic_secret),
++        )
+         .route(
+             "/v1/oauth2/:rs_name/_scopemap/:group",
+             post(super::v1_oauth2::oauth2_id_scopemap_post)
+diff --git a/server/core/src/https/v1_oauth2.rs b/server/core/src/https/v1_oauth2.rs
+index 981f09b1c..2dcabbbfc 100644
+--- a/server/core/src/https/v1_oauth2.rs
++++ b/server/core/src/https/v1_oauth2.rs
+@@ -148,6 +148,35 @@ pub(crate) async fn oauth2_id_get_basic_secret(
+         .map_err(WebError::from)
+ }
+ 
++#[utoipa::path(
++    patch,
++    path = "/v1/oauth2/{rs_name}/_basic_secret",
++    request_body=ProtoEntry,
++    responses(
++        DefaultApiResponse,
++    ),
++    security(("token_jwt" = [])),
++    tag = "v1/oauth2",
++    operation_id = "oauth2_id_patch_basic_secret"
++)]
++/// Overwrite the basic secret for a given OAuth2 Resource Server.
++#[instrument(level = "info", skip(state, new_secret))]
++pub(crate) async fn oauth2_id_patch_basic_secret(
++    State(state): State<ServerState>,
++    Extension(kopid): Extension<KOpId>,
++    VerifiedClientInformation(client_auth_info): VerifiedClientInformation,
++    Path(rs_name): Path<String>,
++    Json(new_secret): Json<String>,
++) -> Result<Json<()>, WebError> {
++    let filter = oauth2_id(&rs_name);
++    state
++        .qe_w_ref
++        .handle_oauth2_basic_secret_write(client_auth_info, filter, new_secret, kopid.eventid)
++        .await
++        .map(Json::from)
++        .map_err(WebError::from)
++}
++
+ #[utoipa::path(
+     patch,
+     path = "/v1/oauth2/{rs_name}",
+diff --git a/server/lib/src/constants/acp.rs b/server/lib/src/constants/acp.rs
+index 96b79fefb..951e8e0a8 100644
+--- a/server/lib/src/constants/acp.rs
++++ b/server/lib/src/constants/acp.rs
+@@ -652,6 +652,7 @@ lazy_static! {
+             Attribute::OAuth2RsOriginLanding,
+             Attribute::OAuth2RsSupScopeMap,
+             Attribute::OAuth2RsScopeMap,
++            Attribute::OAuth2RsBasicSecret,
+             Attribute::OAuth2AllowInsecureClientDisablePkce,
+             Attribute::OAuth2JwtLegacyCryptoEnable,
+             Attribute::OAuth2PreferShortUsername,
+@@ -666,6 +667,7 @@ lazy_static! {
+             Attribute::OAuth2RsOriginLanding,
+             Attribute::OAuth2RsSupScopeMap,
+             Attribute::OAuth2RsScopeMap,
++            Attribute::OAuth2RsBasicSecret,
+             Attribute::OAuth2AllowInsecureClientDisablePkce,
+             Attribute::OAuth2JwtLegacyCryptoEnable,
+             Attribute::OAuth2PreferShortUsername,
+@@ -746,6 +748,7 @@ lazy_static! {
+             Attribute::OAuth2RsOriginLanding,
+             Attribute::OAuth2RsSupScopeMap,
+             Attribute::OAuth2RsScopeMap,
++            Attribute::OAuth2RsBasicSecret,
+             Attribute::OAuth2AllowInsecureClientDisablePkce,
+             Attribute::OAuth2JwtLegacyCryptoEnable,
+             Attribute::OAuth2PreferShortUsername,
+@@ -762,6 +765,7 @@ lazy_static! {
+             Attribute::OAuth2RsOriginLanding,
+             Attribute::OAuth2RsSupScopeMap,
+             Attribute::OAuth2RsScopeMap,
++            Attribute::OAuth2RsBasicSecret,
+             Attribute::OAuth2AllowInsecureClientDisablePkce,
+             Attribute::OAuth2JwtLegacyCryptoEnable,
+             Attribute::OAuth2PreferShortUsername,
+@@ -847,6 +851,7 @@ lazy_static! {
+             Attribute::OAuth2RsOriginLanding,
+             Attribute::OAuth2RsSupScopeMap,
+             Attribute::OAuth2RsScopeMap,
++            Attribute::OAuth2RsBasicSecret,
+             Attribute::OAuth2AllowInsecureClientDisablePkce,
+             Attribute::OAuth2JwtLegacyCryptoEnable,
+             Attribute::OAuth2PreferShortUsername,
+@@ -863,6 +868,7 @@ lazy_static! {
+             Attribute::OAuth2RsOriginLanding,
+             Attribute::OAuth2RsSupScopeMap,
+             Attribute::OAuth2RsScopeMap,
++            Attribute::OAuth2RsBasicSecret,
+             Attribute::OAuth2AllowInsecureClientDisablePkce,
+             Attribute::OAuth2JwtLegacyCryptoEnable,
+             Attribute::OAuth2PreferShortUsername,

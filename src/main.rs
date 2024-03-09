@@ -47,11 +47,12 @@ struct Cli {
     #[arg(long)]
     accept_invalid_certs: bool,
 
-    /// Automatically remove orphaned entities that were provisioned previously but have since been removed
-    /// from the state file. This works by assigning all provisioned entities to a common group and
-    /// deleting any entities in that group that are not found in the state file.
+    /// Do not automatically remove orphaned entities that were previously provisioned
+    /// but have since been removed from the state file. Usually this works by assigning
+    /// all provisioned entities to a common group and deleting any entities in that group
+    /// that are not found in the state file.
     #[arg(long)]
-    auto_remove: bool,
+    no_auto_remove: bool,
 }
 
 /// Return a map of all tracked entities and ensure that their names are unique.
@@ -251,7 +252,9 @@ fn sync_oauth2s(
                 }
             }
 
-            // TODO secret
+            if let Some(secret_file) = &oauth2.basic_secret_file {
+                kanidm_client.update_oauth2_basic_secret(name, secret_file)?;
+            }
         } else if existing_oauth2s.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_OAUTH2, name)?;
         }
@@ -366,7 +369,7 @@ fn main() -> Result<()> {
         true,
     )?;
 
-    if args.auto_remove {
+    if !args.no_auto_remove {
         // Now, remove the orphaned entities that were in the tracking group but
         // no longer exist in our state description.
         remove_orphaned_entities(
