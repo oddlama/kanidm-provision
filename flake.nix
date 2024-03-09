@@ -51,7 +51,10 @@
       # crane exposes a function that takes some configuration arguments.
       # Common settings that we need for all of these are grouped here.
       commonArgs = {
-        src = craneLib.cleanCargoSource (craneLib.path ./.);
+        src = lib.cleanSourceWith {
+          src = ./.;
+          filter = path: type: (craneLib.filterCargoSources path type) || (builtins.baseNameOf path == "README.md");
+        };
 
         # External packages required to compile this project.
         # For normal rust applications this would contain runtime dependencies,
