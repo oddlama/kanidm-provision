@@ -48,6 +48,20 @@ pub struct KanidmClient {
     idm_admin_headers: HeaderMap,
 }
 
+pub fn get_value_array(attr: &str, existing_entities: &HashMap<String, Value>, name: &str) -> Result<Vec<String>> {
+    let entity = existing_entities
+        .get(name)
+        .ok_or_else(|| eyre!("Cannot update unknown oauth2 resource server {name}"))?;
+
+    let current_values = match entity.pointer(attr) {
+        Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
+        None => vec![],
+        other => bail!("Invalid map value for {attr} of entity {name}: {other:?}"),
+    };
+
+    Ok(current_values)
+}
+
 impl KanidmClient {
     pub fn new(url: &str, accept_invalid_certs: bool) -> Result<KanidmClient> {
         let mut client = KanidmClient {
@@ -145,20 +159,7 @@ impl KanidmClient {
         mut values: Vec<String>,
         append: bool,
     ) -> Result<()> {
-        let entity = existing_entities
-            .get(name)
-            .ok_or_else(|| eyre!("Cannot update unknown entity {name} in {endpoint}"))?;
-        let uuid = entity
-            .pointer("/attrs/uuid/0")
-            .and_then(|x| x.as_str())
-            .map(|x| x.to_string())
-            .ok_or_else(|| eyre!("Could not find uuid for {name}"))?;
-
-        let mut current_values: Vec<String> = match entity.pointer(&format!("/attrs/{attr}")) {
-            Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
-            None => vec![],
-            other => bail!("Invalid attr value for {attr} of entity {endpoint}/{name}: {other:?}"),
-        };
+        let mut current_values = get_value_array(&format!("/attrs/{attr}"), existing_entities, name)?;
 
         if attr == "member" {
             current_values = current_values
@@ -170,24 +171,25 @@ impl KanidmClient {
         }
 
         if current_values != values {
-            log_event("Updating", &format!("{endpoint}/{name}/_attr/{attr}"));
-
             if values.is_empty() {
+                log_event("Deleting", &format!("{endpoint}/{name}/_attr/{attr}"));
                 self.client
-                    .delete(format!("{}{endpoint}/{uuid}/_attr/{attr}", self.url))
+                    .delete(format!("{}{endpoint}/{name}/_attr/{attr}", self.url))
                     .headers(self.idm_admin_headers.clone())
                     .send()?
                     .error_for_status()?;
             } else if append {
+                log_event("Appending", &format!("{endpoint}/{name}/_attr/{attr}"));
                 self.client
-                    .post(format!("{}{endpoint}/{uuid}/_attr/{attr}", self.url))
+                    .post(format!("{}{endpoint}/{name}/_attr/{attr}", self.url))
                     .headers(self.idm_admin_headers.clone())
                     .json(&values)
                     .send()?
                     .error_for_status()?;
             } else {
+                log_event("Updating", &format!("{endpoint}/{name}/_attr/{attr}"));
                 self.client
-                    .put(format!("{}{endpoint}/{uuid}/_attr/{attr}", self.url))
+                    .put(format!("{}{endpoint}/{name}/_attr/{attr}", self.url))
                     .headers(self.idm_admin_headers.clone())
                     .json(&values)
                     .send()?
@@ -216,15 +218,7 @@ impl KanidmClient {
         attr: &str,
         values: Vec<String>,
     ) -> Result<()> {
-        let entity = existing_entities
-            .get(name)
-            .ok_or_else(|| eyre!("Cannot update unknown oauth2 resource server {name}"))?;
-
-        let current_values: Vec<String> = match entity.pointer(&format!("/attrs/{attr}")) {
-            Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
-            None => vec![],
-            other => bail!("Invalid attr value for {attr} of entity {ENDPOINT_OAUTH2}/{name}: {other:?}"),
-        };
+        let current_values = get_value_array(&format!("/attrs/{attr}"), existing_entities, name)?;
 
         if current_values != values {
             log_event("Updating", &format!("{ENDPOINT_OAUTH2}/{name} {attr}"));
@@ -249,15 +243,7 @@ impl KanidmClient {
         group: &str,
         mut scopes: Vec<String>,
     ) -> Result<()> {
-        let entity = existing_entities
-            .get(name)
-            .ok_or_else(|| eyre!("Cannot update unknown oauth2 resource server {name}"))?;
-
-        let current_values: Vec<String> = match entity.pointer(&format!("/attrs/{attr_name}")) {
-            Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
-            None => vec![],
-            other => bail!("Invalid map value for {attr_name} of entity {ENDPOINT_OAUTH2}/{name}: {other:?}"),
-        };
+        let current_values = get_value_array(&format!("/attrs/{attr_name}"), existing_entities, name)?;
 
         let mut current_values: Vec<_> = current_values
             .iter()
@@ -278,15 +264,15 @@ impl KanidmClient {
         scopes.sort_unstable();
 
         if current_values != scopes {
-            log_event("Updating", &format!("{ENDPOINT_OAUTH2}/{name} {attr_name}/{group}"));
-
             if scopes.is_empty() {
+                log_event("Deleting", &format!("{ENDPOINT_OAUTH2}/{name} {attr_name}/{group}"));
                 self.client
                     .delete(format!("{}{ENDPOINT_OAUTH2}/{name}/{endpoint_name}/{group}", self.url))
                     .headers(self.idm_admin_headers.clone())
                     .send()?
                     .error_for_status()?;
             } else {
+                log_event("Updating", &format!("{ENDPOINT_OAUTH2}/{name} {attr_name}/{group}"));
                 self.client
                     .post(format!("{}{ENDPOINT_OAUTH2}/{name}/{endpoint_name}/{group}", self.url))
                     .headers(self.idm_admin_headers.clone())
@@ -307,15 +293,7 @@ impl KanidmClient {
         group: &str,
         mut values: Vec<String>,
     ) -> Result<()> {
-        let entity = existing_entities
-            .get(name)
-            .ok_or_else(|| eyre!("Cannot update unknown oauth2 resource server {name}"))?;
-
-        let current_values: Vec<String> = match entity.pointer("/attrs/oauth2_rs_claim_map") {
-            Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
-            None => vec![],
-            other => bail!("Invalid map value for oauth2_rs_claim_map of entity {ENDPOINT_OAUTH2}/{name}: {other:?}"),
-        };
+        let current_values = get_value_array("/attrs/oauth2_rs_claim_map", existing_entities, name)?;
 
         let mut current_values: Vec<_> = current_values
             .iter()
@@ -327,12 +305,12 @@ impl KanidmClient {
         values.sort_unstable();
 
         if current_values != values {
-            log_event(
-                "Updating",
-                &format!("{ENDPOINT_OAUTH2}/{name} oauth2_rs_claim_map/{claim}/{group}"),
-            );
-
             if values.is_empty() {
+                log_event(
+                    "Deleting",
+                    &format!("{ENDPOINT_OAUTH2}/{name} oauth2_rs_claim_map/{claim}/{group}"),
+                );
+
                 self.client
                     .delete(format!(
                         "{}{ENDPOINT_OAUTH2}/{name}/_claimmap/{claim}/{group}",
@@ -342,6 +320,11 @@ impl KanidmClient {
                     .send()?
                     .error_for_status()?;
             } else {
+                log_event(
+                    "Updating",
+                    &format!("{ENDPOINT_OAUTH2}/{name} oauth2_rs_claim_map/{claim}/{group}"),
+                );
+
                 self.client
                     .post(format!(
                         "{}{ENDPOINT_OAUTH2}/{name}/_claimmap/{claim}/{group}",
@@ -364,15 +347,7 @@ impl KanidmClient {
         claim: &str,
         join_type: &str,
     ) -> Result<()> {
-        let entity = existing_entities
-            .get(name)
-            .ok_or_else(|| eyre!("Cannot update unknown oauth2 resource server {name}"))?;
-
-        let current_values: Vec<String> = match entity.pointer("/attrs/oauth2_rs_claim_map") {
-            Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
-            None => vec![],
-            other => bail!("Invalid map value for oauth2_rs_claim_map of entity {ENDPOINT_OAUTH2}/{name}: {other:?}"),
-        };
+        let current_values = get_value_array("/attrs/oauth2_rs_claim_map", existing_entities, name)?;
 
         let delimiter: Option<&str> = current_values
             .iter()

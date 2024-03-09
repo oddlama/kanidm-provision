@@ -23,7 +23,6 @@ pub struct Person {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaimMap {
-    pub remove_unrelated: bool,
     pub join_type: String,
     pub claims_by_group: HashMap<String, Vec<String>>,
 }
@@ -44,6 +43,8 @@ pub struct Oauth2System {
     pub scope_maps: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub supplementary_scope_maps: HashMap<String, Vec<String>>,
+    #[serde(default)]
+    pub remove_orphaned_claim_maps: bool,
     #[serde(default)]
     pub claim_maps: HashMap<String, ClaimMap>,
 }

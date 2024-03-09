@@ -16,6 +16,8 @@ use color_eyre::{
 use serde_json::{json, Value};
 use state::State;
 
+use crate::client::get_value_array;
+
 mod client;
 mod state;
 
@@ -235,7 +237,19 @@ fn sync_oauth2s(
                 kanidm_client.update_oauth2_claim_map_join(existing_oauth2s, name, claim, &claim_map.join_type)?;
             }
 
-            // TODO remove unrelated
+            if oauth2.remove_orphaned_claim_maps {
+                let current_values = get_value_array("/attrs/oauth2_rs_claim_map", existing_oauth2s, name)?;
+                let orphaned: Vec<(&str, &str)> = current_values
+                    .iter()
+                    .map(|x| x.split(':').collect::<Vec<_>>())
+                    .map(|xs| (xs[0], xs[1].split_once('@').map(|x| x.0).unwrap_or(xs[1])))
+                    .filter(|&(claim, _)| !oauth2.claim_maps.contains_key(claim))
+                    .collect();
+
+                for (claim, group) in orphaned {
+                    kanidm_client.update_oauth2_claim_map(existing_oauth2s, name, claim, group, vec![])?;
+                }
+            }
 
             // TODO secret
         } else if existing_oauth2s.contains_key(name) {
