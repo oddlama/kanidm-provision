@@ -227,7 +227,16 @@ fn sync_oauth2s(
                 )?;
             }
 
-            // TODO claim maps
+            for (claim, claim_map) in &oauth2.claim_maps {
+                for (group, values) in &claim_map.claims_by_group {
+                    kanidm_client.update_oauth2_claim_map(existing_oauth2s, name, claim, group, values.clone())?;
+                }
+
+                kanidm_client.update_oauth2_claim_map_join(existing_oauth2s, name, claim, &claim_map.join_type)?;
+            }
+
+            // TODO remove unrelated
+
             // TODO secret
         } else if existing_oauth2s.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_OAUTH2, name)?;

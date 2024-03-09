@@ -22,6 +22,14 @@ pub struct Person {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ClaimMap {
+    pub remove_unrelated: bool,
+    pub join_type: String,
+    pub claims_by_group: HashMap<String, Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Oauth2System {
     pub present: bool,
     pub display_name: String,
@@ -36,6 +44,8 @@ pub struct Oauth2System {
     pub scope_maps: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub supplementary_scope_maps: HashMap<String, Vec<String>>,
+    #[serde(default)]
+    pub claim_maps: HashMap<String, ClaimMap>,
 }
 
 #[derive(Debug, Deserialize)]

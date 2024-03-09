@@ -172,7 +172,13 @@ impl KanidmClient {
         if current_values != values {
             log_event("Updating", &format!("{endpoint}/{name}/_attr/{attr}"));
 
-            if append {
+            if values.is_empty() {
+                self.client
+                    .delete(format!("{}{endpoint}/{uuid}/_attr/{attr}", self.url))
+                    .headers(self.idm_admin_headers.clone())
+                    .send()?
+                    .error_for_status()?;
+            } else if append {
                 self.client
                     .post(format!("{}{endpoint}/{uuid}/_attr/{attr}", self.url))
                     .headers(self.idm_admin_headers.clone())
@@ -274,10 +280,126 @@ impl KanidmClient {
         if current_values != scopes {
             log_event("Updating", &format!("{ENDPOINT_OAUTH2}/{name} {attr_name}/{group}"));
 
+            if scopes.is_empty() {
+                self.client
+                    .delete(format!("{}{ENDPOINT_OAUTH2}/{name}/{endpoint_name}/{group}", self.url))
+                    .headers(self.idm_admin_headers.clone())
+                    .send()?
+                    .error_for_status()?;
+            } else {
+                self.client
+                    .post(format!("{}{ENDPOINT_OAUTH2}/{name}/{endpoint_name}/{group}", self.url))
+                    .headers(self.idm_admin_headers.clone())
+                    .json(&scopes)
+                    .send()?
+                    .error_for_status()?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn update_oauth2_claim_map(
+        &self,
+        existing_entities: &HashMap<String, Value>,
+        name: &str,
+        claim: &str,
+        group: &str,
+        mut values: Vec<String>,
+    ) -> Result<()> {
+        let entity = existing_entities
+            .get(name)
+            .ok_or_else(|| eyre!("Cannot update unknown oauth2 resource server {name}"))?;
+
+        let current_values: Vec<String> = match entity.pointer("/attrs/oauth2_rs_claim_map") {
+            Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
+            None => vec![],
+            other => bail!("Invalid map value for oauth2_rs_claim_map of entity {ENDPOINT_OAUTH2}/{name}: {other:?}"),
+        };
+
+        let mut current_values: Vec<_> = current_values
+            .iter()
+            .find(|x| x.starts_with(&format!("{claim}:{group}@")))
+            .map(|x| x.split(':').nth(3).unwrap_or(x).trim_matches('"').split(',').collect())
+            .unwrap_or_else(Vec::new);
+
+        current_values.sort_unstable();
+        values.sort_unstable();
+
+        if current_values != values {
+            log_event(
+                "Updating",
+                &format!("{ENDPOINT_OAUTH2}/{name} oauth2_rs_claim_map/{claim}/{group}"),
+            );
+
+            if values.is_empty() {
+                self.client
+                    .delete(format!(
+                        "{}{ENDPOINT_OAUTH2}/{name}/_claimmap/{claim}/{group}",
+                        self.url
+                    ))
+                    .headers(self.idm_admin_headers.clone())
+                    .send()?
+                    .error_for_status()?;
+            } else {
+                self.client
+                    .post(format!(
+                        "{}{ENDPOINT_OAUTH2}/{name}/_claimmap/{claim}/{group}",
+                        self.url
+                    ))
+                    .headers(self.idm_admin_headers.clone())
+                    .json(&values)
+                    .send()?
+                    .error_for_status()?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn update_oauth2_claim_map_join(
+        &self,
+        existing_entities: &HashMap<String, Value>,
+        name: &str,
+        claim: &str,
+        join_type: &str,
+    ) -> Result<()> {
+        let entity = existing_entities
+            .get(name)
+            .ok_or_else(|| eyre!("Cannot update unknown oauth2 resource server {name}"))?;
+
+        let current_values: Vec<String> = match entity.pointer("/attrs/oauth2_rs_claim_map") {
+            Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
+            None => vec![],
+            other => bail!("Invalid map value for oauth2_rs_claim_map of entity {ENDPOINT_OAUTH2}/{name}: {other:?}"),
+        };
+
+        let delimiter: Option<&str> = current_values
+            .iter()
+            .find(|x| x.starts_with(&format!("{claim}:")))
+            .and_then(|x| x.split(':').nth(2));
+
+        let current = match delimiter {
+            Some(" ") => "ssv",
+            Some(",") => "csv",
+            Some(";") => "array",
+            _ => "array",
+        };
+
+        if !matches!(join_type, "ssv" | "csv" | "array") {
+            bail!("Invalid join_type ({join_type}) for oauth {name} claim {claim}");
+        }
+
+        if current != join_type {
+            log_event(
+                "Updating",
+                &format!("{ENDPOINT_OAUTH2}/{name} oauth2_rs_claim_map_join/{claim}"),
+            );
+
             self.client
-                .post(format!("{}{ENDPOINT_OAUTH2}/{name}/{endpoint_name}/{group}", self.url))
+                .post(format!("{}{ENDPOINT_OAUTH2}/{name}/_claimmap/{claim}", self.url))
                 .headers(self.idm_admin_headers.clone())
-                .json(&scopes)
+                .json(&join_type)
                 .send()?
                 .error_for_status()?;
         }
