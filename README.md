@@ -184,7 +184,7 @@ This is the schema consumed by this application
             "joinType": "array",
             # Assign values based on kanidm groups.
             # At least one entry is required.
-            "claimsByGroup": {
+            "valuesByGroup": {
               "group1": [
                 "user"
               ],

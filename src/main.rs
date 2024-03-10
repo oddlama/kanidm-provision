@@ -231,7 +231,7 @@ fn sync_oauth2s(
             }
 
             for (claim, claim_map) in &oauth2.claim_maps {
-                for (group, values) in &claim_map.claims_by_group {
+                for (group, values) in &claim_map.values_by_group {
                     kanidm_client.update_oauth2_claim_map(existing_oauth2s, name, claim, group, values.clone())?;
                 }
 

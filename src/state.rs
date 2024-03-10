@@ -26,7 +26,7 @@ pub struct Person {
 #[serde(rename_all = "camelCase")]
 pub struct ClaimMap {
     pub join_type: String,
-    pub claims_by_group: HashMap<String, Vec<String>>,
+    pub values_by_group: HashMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
