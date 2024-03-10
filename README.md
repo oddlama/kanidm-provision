@@ -17,12 +17,12 @@ PRs are of course welcome!
 | | Provisioning Feature
 ---|---
 | |
-| | **Groups**
+| 👪 | **Groups**
 | ✅ | Create/delete
 | ✅ | Members
 | ❌ | Unix attributes
 | |
-| | **Persons**
+| 🧑 | **Persons**
 | ✅ | Create/delete
 | ✅ | Attributes (displayname, legalname, mail)
 | ❌ | Credentials
@@ -30,7 +30,7 @@ PRs are of course welcome!
 | ❌ | Unix attributes
 | ❌ | Radius
 | |
-| | **Oauth2**
+| 🌐 | **Oauth2**
 | ✅ | Create/delete
 | ✅ | Attributes (origin url, origin landing, pkce enable, prefer short username)
 | ✅* | Basic secret
