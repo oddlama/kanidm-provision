@@ -19,6 +19,7 @@ pub const ENDPOINT_OAUTH2: &str = "/v1/oauth2";
 
 trait ResponseExt {
     fn get_json_response(self) -> Result<Value>;
+    fn detailed_error_for_status(self) -> Result<Response>;
 }
 
 impl ResponseExt for Response {
@@ -39,6 +40,14 @@ impl ResponseExt for Response {
         }
 
         json
+    }
+
+    fn detailed_error_for_status(self) -> Result<Response> {
+        if let std::result::Result::Err(e) = self.error_for_status_ref() {
+            Err(e).wrap_err(format!("body: {}", self.text().unwrap_or("<no body>".to_owned())))
+        } else {
+            Ok(self)
+        }
     }
 }
 
@@ -92,7 +101,7 @@ impl KanidmClient {
             .post(format!("{}{ENDPOINT_AUTH}", self.url))
             .json(&json!({ "step": { "init": user } }))
             .send()?
-            .error_for_status()?;
+            .detailed_error_for_status()?;
 
         let session_id = init_response
             .headers()
@@ -176,7 +185,7 @@ impl KanidmClient {
                     .delete(format!("{}{endpoint}/{name}/_attr/{attr}", self.url))
                     .headers(self.idm_admin_headers.clone())
                     .send()?
-                    .error_for_status()?;
+                    .detailed_error_for_status()?;
             } else if append {
                 log_event("Appending", &format!("{endpoint}/{name}/_attr/{attr}"));
                 self.client
@@ -184,7 +193,7 @@ impl KanidmClient {
                     .headers(self.idm_admin_headers.clone())
                     .json(&values)
                     .send()?
-                    .error_for_status()?;
+                    .detailed_error_for_status()?;
             } else {
                 log_event("Updating", &format!("{endpoint}/{name}/_attr/{attr}"));
                 self.client
@@ -192,7 +201,7 @@ impl KanidmClient {
                     .headers(self.idm_admin_headers.clone())
                     .json(&values)
                     .send()?
-                    .error_for_status()?;
+                    .detailed_error_for_status()?;
             }
         }
 
@@ -206,7 +215,7 @@ impl KanidmClient {
             .headers(self.idm_admin_headers.clone())
             .json(payload)
             .send()?
-            .error_for_status()?;
+            .detailed_error_for_status()?;
         Ok(())
     }
 
@@ -227,7 +236,7 @@ impl KanidmClient {
                 .headers(self.idm_admin_headers.clone())
                 .json(&json!({ "attrs": { attr: values } }))
                 .send()?
-                .error_for_status()?;
+                .detailed_error_for_status()?;
         }
 
         Ok(())
@@ -269,7 +278,7 @@ impl KanidmClient {
                     .delete(format!("{}{ENDPOINT_OAUTH2}/{name}/{endpoint_name}/{group}", self.url))
                     .headers(self.idm_admin_headers.clone())
                     .send()?
-                    .error_for_status()?;
+                    .detailed_error_for_status()?;
             } else {
                 log_event("Updating", &format!("{ENDPOINT_OAUTH2}/{name} {attr_name}/{group}"));
                 self.client
@@ -277,7 +286,7 @@ impl KanidmClient {
                     .headers(self.idm_admin_headers.clone())
                     .json(&scopes)
                     .send()?
-                    .error_for_status()?;
+                    .detailed_error_for_status()?;
             }
         }
 
@@ -317,7 +326,7 @@ impl KanidmClient {
                     ))
                     .headers(self.idm_admin_headers.clone())
                     .send()?
-                    .error_for_status()?;
+                    .detailed_error_for_status()?;
             } else {
                 log_event(
                     "Updating",
@@ -332,7 +341,7 @@ impl KanidmClient {
                     .headers(self.idm_admin_headers.clone())
                     .json(&values)
                     .send()?
-                    .error_for_status()?;
+                    .detailed_error_for_status()?;
             }
         }
 
@@ -375,7 +384,7 @@ impl KanidmClient {
                 .headers(self.idm_admin_headers.clone())
                 .json(&join_type)
                 .send()?
-                .error_for_status()?;
+                .detailed_error_for_status()?;
         }
 
         Ok(())
@@ -419,7 +428,7 @@ impl KanidmClient {
             .delete(format!("{}{endpoint}/{entity}", self.url))
             .headers(self.idm_admin_headers.clone())
             .send()?
-            .error_for_status()
+            .detailed_error_for_status()
             .note("Is the name already in use by another entity?")?;
         Ok(())
     }
