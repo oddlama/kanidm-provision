@@ -18,8 +18,8 @@ pub struct Person {
     #[serde(default = "default_true")]
     pub present: bool,
     pub display_name: String,
-    pub legal_name: String,
-    pub mail_addresses: Vec<String>,
+    pub legal_name: Option<String>,
+    pub mail_addresses: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]

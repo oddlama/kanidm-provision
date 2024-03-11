@@ -158,8 +158,8 @@ fn sync_persons(
 
             update_attrs!(kanidm_client, ENDPOINT_PERSON, &existing_persons, &name, [
                 "displayname": vec![person.display_name.clone()],
-                "legalname": vec![person.legal_name.clone()],
-                "mail": person.mail_addresses.clone(),
+                "legalname": person.legal_name.clone().map_or_else(Vec::new, |x| vec![x]),
+                "mail": person.mail_addresses.clone().unwrap_or_else(Vec::new),
             ]);
         } else if existing_persons.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_PERSON, name)?;
