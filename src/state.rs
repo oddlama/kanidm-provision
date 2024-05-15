@@ -34,10 +34,16 @@ pub struct ClaimMap {
 pub struct Oauth2System {
     #[serde(default = "default_true")]
     pub present: bool,
+    #[serde(default = "default_false")]
+    pub public: bool,
     pub display_name: String,
     pub basic_secret_file: Option<String>,
     pub origin_url: String,
     pub origin_landing: Option<String>,
+    #[serde(default = "default_false")]
+    pub enable_localhost_redirects: bool,
+    #[serde(default = "default_false")]
+    pub enable_legacy_crypto: bool,
     #[serde(default = "default_false")]
     pub allow_insecure_client_disable_pkce: bool,
     #[serde(default = "default_false")]

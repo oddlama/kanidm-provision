@@ -178,13 +178,30 @@ fn sync_oauth2s(
     log_status("Syncing oauth2 resource servers");
     for (name, oauth2) in &state.systems.oauth2 {
         if oauth2.present {
-            if !existing_oauth2s.contains_key(name) {
+            let mut do_create = false;
+            if let Some(entity) = existing_oauth2s.get(name) {
+                // Ensure that the client is of correct type (basic/public)
+                // otherwise we need to delete and recreate.
+
+                let is_public = match entity.pointer("/attrs/class") {
+                    Some(Value::Array(x)) => x.iter().any(|x| x.as_str() == Some("oauth2_resource_server_public")),
+                    _ => false,
+                };
+
+                if is_public != oauth2.public {
+                    kanidm_client.delete_entity(ENDPOINT_OAUTH2, name)?;
+                    do_create = true;
+                }
+            } else {
                 if preexisting_entity_names.contains(name) {
                     bail!("Cannot create oauth2 resource server '{name}' because the name is already in use by another entity!");
                 }
+                do_create = true;
+            }
 
+            if do_create {
                 kanidm_client.create_entity(
-                    &format!("{ENDPOINT_OAUTH2}/_basic"),
+                    &format!("{ENDPOINT_OAUTH2}/{}", if oauth2.public { "_public" } else { "_basic" }),
                     name,
                     &json!({ "attrs": {
                         "name": [name],
@@ -200,13 +217,41 @@ fn sync_oauth2s(
                 println!("{}", format!("WARN: origin_url ({}) of oauth2 resource server '{name}' should end in a slash! This will lead to unnecessary updates.", oauth2.origin_url).yellow().bold());
             }
 
-            update_oauth2!(kanidm_client, &existing_oauth2s, &name, [
-                "displayname": Some(oauth2.display_name.clone()),
-                "oauth2_rs_origin": Some(oauth2.origin_url.clone()),
-                "oauth2_rs_origin_landing": oauth2.origin_landing.clone(),
-                "oauth2_allow_insecure_client_disable_pkce": Some(oauth2.allow_insecure_client_disable_pkce.to_string()),
-                "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
-            ]);
+            if oauth2.public {
+                if oauth2.allow_insecure_client_disable_pkce {
+                    println!(
+                        "{}",
+                        format!("WARN: ignoring allow_insecure_client_disable_pkce for public client {name}")
+                            .yellow()
+                            .bold()
+                    );
+                }
+                update_oauth2!(kanidm_client, &existing_oauth2s, &name, [
+                    "displayname": Some(oauth2.display_name.clone()),
+                    "oauth2_rs_origin": Some(oauth2.origin_url.clone()),
+                    "oauth2_rs_origin_landing": oauth2.origin_landing.clone(),
+                    "oauth2_allow_localhost_redirect": Some(oauth2.enable_localhost_redirects.to_string()),
+                    "oauth2_jwt_legacy_crypto_enable": Some(oauth2.enable_legacy_crypto.to_string()),
+                    "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
+                ]);
+            } else {
+                if oauth2.enable_localhost_redirects {
+                    println!(
+                        "{}",
+                        format!("WARN: ignoring enable_localhost_redirects for non-public client {name}")
+                            .yellow()
+                            .bold()
+                    );
+                }
+                update_oauth2!(kanidm_client, &existing_oauth2s, &name, [
+                    "displayname": Some(oauth2.display_name.clone()),
+                    "oauth2_rs_origin": Some(oauth2.origin_url.clone()),
+                    "oauth2_rs_origin_landing": oauth2.origin_landing.clone(),
+                    "oauth2_allow_insecure_client_disable_pkce": Some(oauth2.allow_insecure_client_disable_pkce.to_string()),
+                    "oauth2_jwt_legacy_crypto_enable": Some(oauth2.enable_legacy_crypto.to_string()),
+                    "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
+                ]);
+            }
 
             for (group, scopes) in &oauth2.scope_maps {
                 kanidm_client.update_oauth2_map(
@@ -253,7 +298,16 @@ fn sync_oauth2s(
             }
 
             if let Some(secret_file) = &oauth2.basic_secret_file {
-                kanidm_client.update_oauth2_basic_secret(name, secret_file)?;
+                if oauth2.public {
+                    println!(
+                        "{}",
+                        format!("WARN: ignoring basic_secret_file for public client {name}")
+                            .yellow()
+                            .bold()
+                    );
+                } else {
+                    kanidm_client.update_oauth2_basic_secret(name, secret_file)?;
+                }
             }
         } else if existing_oauth2s.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_OAUTH2, name)?;
@@ -343,7 +397,12 @@ fn main() -> Result<()> {
 
     sync_groups(&state, &kanidm_client, &mut existing_groups, &preexisting_entity_names)?;
     sync_persons(&state, &kanidm_client, &mut existing_persons, &preexisting_entity_names)?;
-    sync_oauth2s(&state, &kanidm_client, &mut existing_oauth2s, &preexisting_entity_names)?;
+    sync_oauth2s(
+        &state,
+        &kanidm_client,
+        &mut existing_oauth2s,
+        &mut preexisting_entity_names,
+    )?;
 
     // Sync group members
     log_status("Syncing group members");
@@ -360,6 +419,9 @@ fn main() -> Result<()> {
     // we can be sure to never lose any entries in case of unexpected errors.
     // Members can thus only be removed by removing the entity itself.
     log_status("Tracking provisioned entities");
+    // Update groups now to ensure we catch changes in case an entity removal caused
+    // the previous value to be outdated (e.g. changing oauth2 public to basic could cause that)
+    existing_groups = kanidm_client.get_entities(ENDPOINT_GROUP)?;
     kanidm_client.update_entity_attrs(
         ENDPOINT_GROUP,
         &existing_groups,
