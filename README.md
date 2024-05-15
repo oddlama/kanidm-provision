@@ -31,7 +31,7 @@ PRs are of course welcome!
 | ❌ | Radius
 | |
 | 🌐 | **Oauth2**
-| ✅ | Create/delete
+| ✅ | Create/delete (basic, public)
 | ✅ | Attributes (origin url, origin landing, pkce enable, prefer short username)
 | ✅* | Basic secret
 | ✅ | Scope maps
@@ -141,13 +141,27 @@ This is the schema consumed by this application
         # Optional. Defaults to true if not given.
         # Whether the oauth2 resource server should be present or absent.
         "present": true,
+        # Optional. Defaults to false if not given.
+        # Whether the oauth2 resource server should be a public one (i.e. no basic secret, enforces PKCE and can allow localhost redirect).
+        "public": false,
         # Required.
         "displayName": "Forgejo",
         # Required. Must end with a '/'
         "originUrl": "https://git.example.com/",
+        # Landing page url (for web interface)
+        "originLanding": "https://git.example.com/",
         # Optional. Only works when using the patch. Do not specify otherwise!
         # Will set the basic secret to the contents of the given file. Whitespace will be trimmed from both ends.
+        # Only for non-public clients
         "basicSecretFile": "./secret1",
+        # Optional. Defaults to false. Use name instead of spn for the preferred_username claim
+        "preferShortUsername": false,
+        # Optional. Defaults to false. Allows localhost redirects. Only for public resource servers.
+        "enableLocalhostRedirects": false,
+        # Optional. Defaults to false. Allows legacy jwt crypto like RS256.
+        "enableLegacyCrypto": false,
+        # Optional. Defaults to false. Disables PKCE for this resource server (can only be used on non-public resoure servers).
+        "allowInsecureClientDisablePkce": false,
         # Optional.
         # Scope maps will map kanidm groups to returned oauth scopes.
         "scopeMaps": {
