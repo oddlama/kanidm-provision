@@ -148,7 +148,7 @@ This is the schema consumed by this application
         "displayName": "Forgejo",
         # Required. Must end with a '/'
         "originUrl": "https://git.example.com/",
-        # Landing page url (for web interface)
+        # Required. Landing page url (for web interface)
         "originLanding": "https://git.example.com/",
         # Optional. Only works when using the patch. Do not specify otherwise!
         # Will set the basic secret to the contents of the given file. Whitespace will be trimmed from both ends.

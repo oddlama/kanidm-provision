@@ -39,7 +39,7 @@ pub struct Oauth2System {
     pub display_name: String,
     pub basic_secret_file: Option<String>,
     pub origin_url: String,
-    pub origin_landing: Option<String>,
+    pub origin_landing: String,
     #[serde(default = "default_false")]
     pub enable_localhost_redirects: bool,
     #[serde(default = "default_false")]

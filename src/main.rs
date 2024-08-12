@@ -206,6 +206,7 @@ fn sync_oauth2s(
                     &json!({ "attrs": {
                         "name": [name],
                         "oauth2_rs_origin": [oauth2.origin_url],
+                        "oauth2_rs_origin_landing": [oauth2.origin_landing],
                         "displayname": [oauth2.display_name],
                     }}),
                 )?;
@@ -229,7 +230,7 @@ fn sync_oauth2s(
                 update_oauth2!(kanidm_client, &existing_oauth2s, &name, [
                     "displayname": Some(oauth2.display_name.clone()),
                     "oauth2_rs_origin": Some(oauth2.origin_url.clone()),
-                    "oauth2_rs_origin_landing": oauth2.origin_landing.clone(),
+                    "oauth2_rs_origin_landing": Some(oauth2.origin_landing.clone()),
                     "oauth2_allow_localhost_redirect": Some(oauth2.enable_localhost_redirects.to_string()),
                     "oauth2_jwt_legacy_crypto_enable": Some(oauth2.enable_legacy_crypto.to_string()),
                     "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
@@ -246,7 +247,7 @@ fn sync_oauth2s(
                 update_oauth2!(kanidm_client, &existing_oauth2s, &name, [
                     "displayname": Some(oauth2.display_name.clone()),
                     "oauth2_rs_origin": Some(oauth2.origin_url.clone()),
-                    "oauth2_rs_origin_landing": oauth2.origin_landing.clone(),
+                    "oauth2_rs_origin_landing": Some(oauth2.origin_landing.clone()),
                     "oauth2_allow_insecure_client_disable_pkce": Some(oauth2.allow_insecure_client_disable_pkce.to_string()),
                     "oauth2_jwt_legacy_crypto_enable": Some(oauth2.enable_legacy_crypto.to_string()),
                     "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
