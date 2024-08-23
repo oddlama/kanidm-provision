@@ -1,165 +1,73 @@
 {
-  description = "A small utility to help with kanidm provisioning";
   inputs = {
-    advisory-db = {
-      url = "github:rustsec/advisory-db";
-      flake = false;
-    };
-
-    crane = {
-      url = "github:ipetkov/crane";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    devshell = {
-      url = "github:numtide/devshell";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    flake-utils.url = "github:numtide/flake-utils";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    nci.url = "github:yusdacra/nix-cargo-integration";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     pre-commit-hooks = {
       url = "github:cachix/pre-commit-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
     };
   };
 
-  outputs = {
-    self,
-    advisory-db,
-    devshell,
-    crane,
-    flake-utils,
-    nixpkgs,
-    pre-commit-hooks,
-  }:
-    flake-utils.lib.eachDefaultSystem (localSystem: let
-      pkgs = import nixpkgs {
-        inherit localSystem;
-        overlays = [
-          devshell.overlays.default
-        ];
-      };
-      inherit (pkgs) lib;
+  outputs = inputs:
+    inputs.flake-parts.lib.mkFlake {inherit inputs;} {
+      imports = [
+        inputs.nci.flakeModule
+        inputs.pre-commit-hooks.flakeModule
 
-      projectName = "kanidm-provision";
-      craneLib = crane.lib.${localSystem};
+        # Derive the output overlay automatically from all packages that we define.
+        inputs.flake-parts.flakeModules.easyOverlay
+      ];
 
-      # For each of the classical cargo "functions" like build, doc, test, ...,
-      # crane exposes a function that takes some configuration arguments.
-      # Common settings that we need for all of these are grouped here.
-      commonArgs = {
-        src = lib.cleanSourceWith {
-          src = ./.;
-          filter = path: type: (craneLib.filterCargoSources path type) || (builtins.baseNameOf path == "README.md");
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+
+      perSystem = {
+        config,
+        pkgs,
+        system,
+        ...
+      }: let
+        projectName = "kanidm-provision";
+
+        pkgsWithSelf = import inputs.nixpkgs {
+          inherit system;
+          overlays = [inputs.self.overlays.default];
+        };
+      in {
+        pre-commit.settings.hooks = {
+          alejandra.enable = true;
+          deadnix.enable = true;
+          statix.enable = true;
         };
 
-        # External packages required to compile this project.
-        # For normal rust applications this would contain runtime dependencies,
-        # but since we are compiling for a foreign platform this is most likely
-        # going to stay empty except for the linker.
-        buildInputs =
-          [
-            # Add additional build inputs here
-          ]
-          ++ lib.optionals pkgs.stdenv.isDarwin [
-            # Additional darwin specific inputs can be set here
-            pkgs.libiconv
-          ];
-      };
+        nci.projects.${projectName}.path = ./.;
+        nci.crates.${projectName} = {};
 
-      # Build *just* the cargo dependencies, so we can reuse
-      # all of that work (e.g. via cachix) when running in CI
-      cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+        devShells.default = config.nci.outputs.${projectName}.devShell.overrideAttrs (old: {
+          nativeBuildInputs =
+            (old.nativeBuildInputs or [])
+            ++ [
+              pkgs.cargo-release
+            ];
 
-      # Build the actual package
-      package = craneLib.buildPackage (commonArgs
-        // {
-          inherit cargoArtifacts;
+          shellHook = ''
+            ${old.shellHook or ""}
+            ${config.pre-commit.installationScript}
+          '';
         });
-    in {
-      # Define checks that can be run with `nix flake check`
-      checks =
-        {
-          # Build the crate normally as part of checking, for convenience
-          ${projectName} = package;
 
-          # Run clippy (and deny all warnings) on the crate source,
-          # again, resuing the dependency artifacts from above.
-          #
-          # Note that this is done as a separate derivation so that
-          # we can block the CI if there are issues here, but not
-          # prevent downstream consumers from building our crate by itself.
-          "${projectName}-clippy" = craneLib.cargoClippy (commonArgs
-            // {
-              inherit cargoArtifacts;
-              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-            });
+        packages.default = config.nci.outputs.${projectName}.packages.release;
+        # Offer to run the upstream tests with the current package for testing
+        packages.test = pkgsWithSelf.nixosTests.kanidm-provisioning;
 
-          "${projectName}-doc" = craneLib.cargoDoc (commonArgs
-            // {
-              inherit cargoArtifacts;
-            });
-
-          # Check formatting
-          "${projectName}-fmt" = craneLib.cargoFmt {
-            inherit (commonArgs) src;
-          };
-
-          # Audit dependencies
-          "${projectName}-audit" = craneLib.cargoAudit {
-            inherit (commonArgs) src;
-            inherit advisory-db;
-          };
-        }
-        // {
-          pre-commit = pre-commit-hooks.lib.${localSystem}.run {
-            src = ./.;
-            hooks = {
-              alejandra.enable = true;
-              cargo-check.enable = true;
-              rustfmt.enable = true;
-              statix.enable = true;
-            };
-          };
+        formatter = pkgs.alejandra; # `nix fmt`
+        overlayAttrs = {
+          kanidm-provision = config.packages.default;
         };
-
-      packages.default = package; # `nix build`
-      packages.${projectName} = package; # `nix build .#${projectName}`
-
-      # `nix develop`
-      devShells.default = pkgs.devshell.mkShell {
-        name = projectName;
-        imports = [
-          "${devshell}/extra/language/c.nix"
-          "${devshell}/extra/language/rust.nix"
-        ];
-
-        commands = [
-          {
-            package = pkgs.alejandra;
-            help = "Format nix code";
-          }
-          {
-            package = pkgs.statix;
-            help = "Lint nix code";
-          }
-          {
-            package = pkgs.deadnix;
-            help = "Find unused expressions in nix code";
-          }
-        ];
-
-        devshell.startup.pre-commit.text = self.checks.${localSystem}.pre-commit.shellHook;
-        packages =
-          commonArgs.buildInputs
-          ++ [
-            pkgs.rust-analyzer
-          ];
       };
-
-      formatter = pkgs.alejandra; # `nix fmt`
-    });
+    };
 }
