@@ -199,13 +199,15 @@ fn sync_oauth2s(
                 do_create = true;
             }
 
+            let origin_urls = oauth2.origin_url.clone().strings();
+
             if do_create {
                 kanidm_client.create_entity(
                     &format!("{ENDPOINT_OAUTH2}/{}", if oauth2.public { "_public" } else { "_basic" }),
                     name,
                     &json!({ "attrs": {
                         "name": [name],
-                        "oauth2_rs_origin": [oauth2.origin_url],
+                        "oauth2_rs_origin": origin_urls,
                         "oauth2_rs_origin_landing": [oauth2.origin_landing],
                         "displayname": [oauth2.display_name],
                     }}),
@@ -214,8 +216,10 @@ fn sync_oauth2s(
                 existing_oauth2s.extend(kanidm_client.get_entities(ENDPOINT_OAUTH2)?);
             }
 
-            if !oauth2.origin_url.ends_with('/') {
-                println!("{}", format!("WARN: origin_url ({}) of oauth2 resource server '{name}' should end in a slash! This will lead to unnecessary updates.", oauth2.origin_url).yellow().bold());
+            for origin_url in &origin_urls {
+                if !origin_url.ends_with('/') {
+                    println!("{}", format!("WARN: origin_url ({}) of oauth2 resource server '{name}' should end in a slash! This will lead to unnecessary updates.", origin_url).yellow().bold());
+                }
             }
 
             if oauth2.public {
@@ -229,12 +233,12 @@ fn sync_oauth2s(
                 }
                 update_oauth2!(kanidm_client, &existing_oauth2s, &name, [
                     "displayname": Some(oauth2.display_name.clone()),
-                    "oauth2_rs_origin": Some(oauth2.origin_url.clone()),
                     "oauth2_rs_origin_landing": Some(oauth2.origin_landing.clone()),
                     "oauth2_allow_localhost_redirect": Some(oauth2.enable_localhost_redirects.to_string()),
                     "oauth2_jwt_legacy_crypto_enable": Some(oauth2.enable_legacy_crypto.to_string()),
                     "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
                 ]);
+                kanidm_client.update_oauth2_attrs(existing_oauth2s, name, "oauth2_rs_origin", origin_urls)?;
             } else {
                 if oauth2.enable_localhost_redirects {
                     println!(
@@ -246,12 +250,12 @@ fn sync_oauth2s(
                 }
                 update_oauth2!(kanidm_client, &existing_oauth2s, &name, [
                     "displayname": Some(oauth2.display_name.clone()),
-                    "oauth2_rs_origin": Some(oauth2.origin_url.clone()),
                     "oauth2_rs_origin_landing": Some(oauth2.origin_landing.clone()),
                     "oauth2_allow_insecure_client_disable_pkce": Some(oauth2.allow_insecure_client_disable_pkce.to_string()),
                     "oauth2_jwt_legacy_crypto_enable": Some(oauth2.enable_legacy_crypto.to_string()),
                     "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
                 ]);
+                kanidm_client.update_oauth2_attrs(existing_oauth2s, name, "oauth2_rs_origin", origin_urls)?;
             }
 
             for (group, scopes) in &oauth2.scope_maps {

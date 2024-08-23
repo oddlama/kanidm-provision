@@ -146,7 +146,9 @@ This is the schema consumed by this application
         "public": false,
         # Required.
         "displayName": "Forgejo",
-        # Required. Must end with a '/'
+        # Required. Must end with a '/'.
+        # Also accepts a non-empty list of strings if you want to set multiple origin urls.
+        # e.g. ["https://git.example.com/", "https://git.example.de/"]
         "originUrl": "https://git.example.com/",
         # Required. Landing page url (for web interface)
         "originLanding": "https://git.example.com/",

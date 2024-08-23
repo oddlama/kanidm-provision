@@ -29,6 +29,22 @@ pub struct ClaimMap {
     pub values_by_group: HashMap<String, Vec<String>>,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum StringOrStrings {
+    String(String),
+    Strings(Vec<String>),
+}
+
+impl StringOrStrings {
+    pub fn strings(self) -> Vec<String> {
+        match self {
+            StringOrStrings::String(x) => vec![x],
+            StringOrStrings::Strings(xs) => xs,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Oauth2System {
@@ -38,7 +54,7 @@ pub struct Oauth2System {
     pub public: bool,
     pub display_name: String,
     pub basic_secret_file: Option<String>,
-    pub origin_url: String,
+    pub origin_url: StringOrStrings,
     pub origin_landing: String,
     #[serde(default = "default_false")]
     pub enable_localhost_redirects: bool,
