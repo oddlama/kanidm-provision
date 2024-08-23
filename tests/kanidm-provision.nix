@@ -1,6 +1,7 @@
 (import ./lib.nix) (
   { pkgs, ... }:
   let
+    outerPkgs = pkgs;
     certs = import (pkgs.path + "/nixos/tests/common/acme/server/snakeoil-certs.nix");
     serverDomain = certs.domain;
 
@@ -15,6 +16,9 @@
     nodes.provision =
       { pkgs, lib, ... }:
       {
+        disabledModules = [ "services/security/kanidm.nix" ];
+        imports = [ ./kanidm.nix ];
+        nixpkgs.pkgs = lib.mkForce outerPkgs;
         services.kanidm = {
           package = pkgs.kanidm.withSecretProvisioning;
           enableServer = true;
@@ -151,7 +155,11 @@
               groups.service1-admin = { };
               systems.oauth2.service1 = {
                 displayName = "Service One (changed)";
-                originUrl = "https://changed-one.example.com/";
+                # multiple origin urls
+                originUrl = [
+                  "https://changed-one.example.com/"
+                  "https://changed-one.example.org/"
+                ];
                 originLanding = "https://changed-one.example.com/landing-changed";
                 basicSecretFile = pkgs.writeText "bs-service1" "changed-very-strong-secret-for-service1";
                 scopeMaps.service1-access = [
@@ -398,6 +406,7 @@
             assert_contains(out, "name: service1")
             assert_contains(out, "displayname: Service One (changed)")
             assert_contains(out, "oauth2_rs_origin: https://changed-one.example.com/")
+            assert_contains(out, "oauth2_rs_origin: https://changed-one.example.org/")
             assert_contains(out, "oauth2_rs_origin_landing: https://changed-one.example.com/landing")
             assert_matches(out, 'oauth2_rs_scope_map: service1-access.*{"email", "openid"}')
             assert_matches(out, 'oauth2_rs_sup_scope_map: service1-admin.*{"adminchanged"}')
@@ -453,6 +462,7 @@
             assert_contains(out, "name: service1")
             assert_contains(out, "displayname: Service One (changed)")
             assert_contains(out, "oauth2_rs_origin: https://changed-one.example.com/")
+            assert_lacks(out, "oauth2_rs_origin: https://changed-one.example.org/")
             assert_contains(out, "oauth2_rs_origin_landing: https://changed-one.example.com/landing")
             assert_lacks(out, "oauth2_rs_scope_map")
             assert_lacks(out, "oauth2_rs_sup_scope_map")
