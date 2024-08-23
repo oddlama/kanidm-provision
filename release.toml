@@ -1,0 +1,5 @@
+sign-commit = true
+sign-tag = true
+pre-release-commit-message = "chore: release version {{version}}"
+tag-message = "chore: release {{crate_name}} version {{version}}"
+tag-prefix = ""
