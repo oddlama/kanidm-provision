@@ -216,12 +216,6 @@ fn sync_oauth2s(
                 existing_oauth2s.extend(kanidm_client.get_entities(ENDPOINT_OAUTH2)?);
             }
 
-            for origin_url in &origin_urls {
-                if !origin_url.ends_with('/') {
-                    println!("{}", format!("WARN: origin_url ({}) of oauth2 resource server '{name}' should end in a slash! This will lead to unnecessary updates.", origin_url).yellow().bold());
-                }
-            }
-
             if oauth2.public {
                 if oauth2.allow_insecure_client_disable_pkce {
                     println!(
