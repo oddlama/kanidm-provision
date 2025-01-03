@@ -177,7 +177,8 @@ This is the schema consumed by this application
         # Optional.
         # Supplementary scope maps will map kanidm groups to additionally returned oauth scopes.
         "supplementaryScopeMaps": {
-          # One entry per supplementary scope map.
+          # One entry per supplementary scope map. Anything not specified here will not be touched.
+          # To remove an entry, assign the empty list.
           "group2": [
             "additional_scope"
           ]
