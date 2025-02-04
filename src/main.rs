@@ -406,7 +406,7 @@ fn main() -> Result<()> {
     // Sync group members
     log_status("Syncing group members");
     for (name, group) in &state.groups {
-        if group.present {
+        if group.present && !group.memberless {
             update_attrs!(kanidm_client, ENDPOINT_GROUP, &existing_groups, &name, [
                 "member": group.members.clone(),
             ]);
