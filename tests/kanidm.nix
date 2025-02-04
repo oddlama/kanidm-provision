@@ -91,6 +91,8 @@ let
     };
 
   filterPresent = lib.filterAttrs (_: v: v.present);
+  filterMemberless = lib.filterAttrs (_: v: v.present && v.memberless);
+  filterMemberful = lib.filterAttrs (_: v: v.present && !v.memberless);
 
   provisionStateJson = pkgs.writeText "provision-state.json" (
     builtins.toJSON { inherit (cfg.provision) groups persons systems; }
@@ -390,6 +392,12 @@ in
                 type = lib.types.listOf lib.types.str;
                 apply = lib.unique;
                 default = [ ];
+              };
+
+              memberless = lib.mkOption {
+                description = "Whether this group is considered memberless, i.e. the list of members is managed imperatively.";
+                type = lib.types.bool;
+                default = false;
               };
             };
             config.members = lib.concatLists (
@@ -708,9 +716,17 @@ in
         person: personCfg:
         assertGroupsKnown "services.kanidm.provision.persons.${person}.groups" personCfg.groups
       )
-      ++ lib.flip lib.mapAttrsToList (filterPresent cfg.provision.groups) (
+      ++ lib.flip lib.mapAttrsToList (filterMemberful cfg.provision.groups) (
         group: groupCfg:
         assertEntitiesKnown "services.kanidm.provision.groups.${group}.members" groupCfg.members
+      )
+      ++ lib.flip lib.mapAttrsToList (filterMemberless cfg.provision.groups) (
+        group: groupCfg: {
+          assertion = cfg.provision.enable -> groupCfg.members == [ ];
+          message = ''
+            services.kanidm.groups.${group} is declared as memberless but contains members: ${toString groupCfg.members}
+          '';
+        }
       )
       ++ lib.concatLists (
         lib.flip lib.mapAttrsToList (filterPresent cfg.provision.systems.oauth2) (
