@@ -95,6 +95,10 @@
                 originUrl = "https://one.example.com/";
                 originLanding = "https://one.example.com/landing";
                 basicSecretFile = pkgs.writeText "bs-service1" "very-strong-secret-for-service1";
+                imageFile = pkgs.fetchurl {
+                  url = "https://github.com/NixOS/nixos-artwork/raw/33856d7837cb8ba76c4fc9e26f91a659066ee31f/logo/nix-snowflake-colours.svg";
+                  hash = "sha256-43taHBHoFJbp1GrwSQiVGtprq6pBbWcKquSTTM6RLrI=";
+                };
                 scopeMaps.service1-access = [
                   "openid"
                   "email"
@@ -352,6 +356,7 @@
             assert_contains(out, "displayname: Service One")
             assert_contains(out, "oauth2_rs_origin: https://one.example.com/")
             assert_contains(out, "oauth2_rs_origin_landing: https://one.example.com/landing")
+            assert_contains(out, "image: ")
             assert_matches(out, 'oauth2_rs_scope_map: service1-access.*{"email", "openid", "profile"}')
             assert_matches(out, 'oauth2_rs_sup_scope_map: service1-admin.*{"admin"}')
             assert_matches(out, 'oauth2_rs_claim_map: groups:.*"admin"')
