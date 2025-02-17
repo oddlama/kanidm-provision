@@ -308,6 +308,10 @@ fn sync_oauth2s(
                     kanidm_client.update_oauth2_basic_secret(name, secret_file)?;
                 }
             }
+
+            if let Some(image_file) = &oauth2.image_file {
+                kanidm_client.update_oauth2_image(name, image_file)?;
+            }
         } else if existing_oauth2s.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_OAUTH2, name)?;
         }

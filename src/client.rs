@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use color_eyre::{
-    eyre::{bail, eyre, Context, OptionExt, Result},
+    eyre::{bail, eyre, Context, ContextCompat, OptionExt, Result},
     Section,
 };
 use reqwest::{
-    blocking::{Client, Response},
+    blocking::{multipart, Client, Response},
     header::{HeaderMap, HeaderValue},
 };
 use serde_json::{json, Value};
@@ -418,6 +418,50 @@ impl KanidmClient {
                 .wrap_err("Failed to update oauth2 basic secret! Did you compile kanidm with the necessary patch? Refer to https://github.com/oddlama/kanidm-provision for more information.")?
                 .get_json_response()?;
         }
+
+        Ok(())
+    }
+
+    pub fn update_oauth2_image(&self, name: &str, image_file: &str) -> Result<()> {
+        let image_data = std::fs::read(image_file).wrap_err_with(|| format!("failed to read {:?}", image_file))?;
+
+        let path = Path::new(image_file);
+
+        let mime_str = match path
+            .extension()
+            .and_then(|ext| ext.to_str().map(|ext| ext.to_lowercase()))
+            .as_deref()
+        {
+            Some("png") => "image/png",
+            Some("jpg") | Some("jpeg") => "image/jpeg",
+            Some("gif") => "image/gif",
+            Some("svg") => "image/svg+xml",
+            Some("webp") => "image/webp",
+            Some(ext) => bail!("image file extension unsupported {ext}"),
+            None => bail!("image file path missing extension {image_file}"),
+        };
+
+        let filename = path
+            .file_name()
+            .wrap_err("image path has no file name")?
+            .to_string_lossy()
+            .to_string();
+
+        let file_data = multipart::Part::bytes(image_data)
+            .file_name(filename)
+            .mime_str(mime_str)
+            .wrap_err("Failed to generate multipart body from image data")?;
+
+        let form = multipart::Form::new().part("image", file_data);
+
+        log_event("Updating", &format!("{ENDPOINT_OAUTH2}/{name}/_image"));
+
+        self.client
+            .post(format!("{}{ENDPOINT_OAUTH2}/{name}/_image", self.url))
+            .headers(self.idm_admin_headers.clone())
+            .multipart(form)
+            .send()?
+            .get_json_response()?;
 
         Ok(())
     }

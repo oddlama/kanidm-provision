@@ -163,6 +163,10 @@ This is the schema consumed by this application
         # Will set the basic secret to the contents of the given file. Whitespace will be trimmed from both ends.
         # Only for non-public clients
         "basicSecretFile": "./secret1",
+        # Optional. Application image to display in the WebUI.
+        # Kanidm supports "image/jpeg", "image/png", "image/gif", "image/svg+xml", and "image/webp"
+        # The image will be uploaded each time kanidm-provision is run
+        "imageFile": "./forgejo.svg",
         # Optional. Defaults to false. Use name instead of spn for the preferred_username claim
         "preferShortUsername": false,
         # Optional. Defaults to false. Allows localhost redirects. Only for public resource servers.
