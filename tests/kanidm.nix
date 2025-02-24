@@ -489,6 +489,25 @@ in
                 default = null;
               };
 
+              imageFile = lib.mkOption {
+                description = ''
+                  Application image to display in the WebUI.
+
+                  The image will be uploaded each time Kanidm starts.
+
+                  Kanidm supports:
+
+                  - image/jpeg
+                  - image/png
+                  - image/gif
+                  - image/svg+xml
+                  - image/webp
+                '';
+                type = lib.types.nullOr lib.types.path;
+                example = "/var/lib/kanidm/webapp_image.svg";
+                default = null;
+              };
+
               enableLocalhostRedirects = lib.mkOption {
                 description = "Allow localhost redirects. Only for public clients.";
                 type = lib.types.bool;

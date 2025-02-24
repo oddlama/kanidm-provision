@@ -54,6 +54,7 @@ pub struct Oauth2System {
     pub public: bool,
     pub display_name: String,
     pub basic_secret_file: Option<String>,
+    pub image_file: Option<String>,
     pub origin_url: StringOrStrings,
     pub origin_landing: String,
     #[serde(default = "default_false")]
