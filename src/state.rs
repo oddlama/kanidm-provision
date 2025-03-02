@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use color_eyre::eyre::{Context, Result};
+use color_eyre::eyre::{bail, Context, Result};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -101,6 +101,18 @@ impl State {
         let file_content = std::fs::read_to_string(filename.as_ref())
             .context(format!("Failed to read state file: {}", filename.as_ref().display()))?;
         let state: State = serde_json::from_str(&file_content).context("Failed to parse state")?;
+        // make sure that all keys in State are lowercase, as the Kanidm API returns them in
+        // lowercase & we want to compare against that
+        for key in state
+            .persons
+            .keys()
+            .chain(state.groups.keys())
+            .chain(state.systems.oauth2.keys())
+        {
+            if *key != key.to_lowercase() {
+                bail!("Cannot parse state, '{key}' is not lowercase. Please only use lowercase keys for persons, groups and oauth systems.");
+            }
+        }
         Ok(state)
     }
 }

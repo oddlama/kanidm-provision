@@ -102,7 +102,10 @@ KANIDM_RECOVER_ACCOUNT_PASSWORD=V3kACDdwPjYUgYuLdlRfBqeBWf3TyJmv9h0f6CP3E3dv2B4S
 
 ## JSON Schema
 
-This is the schema consumed by this application
+This is the schema consumed by this application.
+
+Note that all keys for `groups`, `persons` and `systems.oauth2` need to be in lowercase.
+E.g. `person1` is allowed, `Person1` or `pErSoN1` are not.
 
 ```yaml
 {
