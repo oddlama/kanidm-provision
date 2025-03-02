@@ -60,7 +60,7 @@ pub struct KanidmClient {
 pub fn get_value_array(attr: &str, existing_entities: &HashMap<String, Value>, name: &str) -> Result<Vec<String>> {
     let entity = existing_entities
         .get(name)
-        .ok_or_else(|| eyre!("Cannot update unknown oauth2 resource server {name}"))?;
+        .ok_or_else(|| eyre!("Cannot update unknown entity {name}"))?;
 
     let current_values = match entity.pointer(attr) {
         Some(Value::Array(x)) => x.iter().filter_map(|x| x.as_str().map(|x| x.to_string())).collect(),
