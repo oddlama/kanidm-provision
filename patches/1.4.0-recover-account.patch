@@ -4,22 +4,29 @@ Date: Fri, 1 Nov 2024 12:27:43 +0100
 Subject: [PATCH 2/2] recover account
 
 ---
- server/core/src/actors/internal.rs |  3 ++-
+ server/core/src/actors/internal.rs |  5 +++--
  server/core/src/admin.rs           |  6 +++---
  server/daemon/src/main.rs          | 14 +++++++++++++-
  server/daemon/src/opt.rs           |  4 ++++
- 4 files changed, 22 insertions(+), 5 deletions(-)
+ 4 files changed, 23 insertions(+), 6 deletions(-)
 
 diff --git a/server/core/src/actors/internal.rs b/server/core/src/actors/internal.rs
 index 420e72c6c..5c4353116 100644
 --- a/server/core/src/actors/internal.rs
 +++ b/server/core/src/actors/internal.rs
-@@ -171,25 +171,26 @@ impl QueryServerWriteV1 {
+@@ -165,31 +165,32 @@ impl QueryServerWriteV1 {
+                 .await
+             }
+         }
+ 
+         // We're done, clear out the buffer.
+         da_batch.clear();
      }
  
      #[instrument(
          level = "info",
-         skip(self, eventid),
+-        skip(self, eventid),
++        skip(self, password, eventid),
          fields(uuid = ?eventid)
      )]
      pub(crate) async fn handle_admin_recover_account(
