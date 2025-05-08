@@ -85,8 +85,11 @@ tr --complement --delete 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkpqrstuvwxyz012345678
 ```
 
 > \[!CAUTION\]
-> You need to reset your kanidm database after applying these patches to the kanidm source code,
-> otherwise the access control profile will not be updated and any call to the new endpoint will fail!
+> If you use a patchset for kanidm 1.5 or older, you need to reset your kanidm
+> database after applying these patches to the kanidm source code. Otherwise,
+> the access control profile will not be updated and any call to the new
+> endpoint will fail! The new patchset will automatically ensure these
+> permissions are set on startup.
 
 ## Provisioning (idm_)admin credentials
 
@@ -96,7 +99,7 @@ idm_admin password and avoid dynamic state that needs to be known to run the
 provisioning tool.
 
 ```bash
-KANIDM_RECOVER_ACCOUNT_PASSWORD=V3kACDdwPjYUgYuLdlRfBqeBWf3TyJmv9h0f6CP3E3dv2B4S \
+KANIDM_RECOVER_ACCOUNT_PASSWORD_FILE=<(echo V3kACDdwPjYUgYuLdlRfBqeBWf3TyJmv9h0f6CP3E3dv2B4S) \
   kanidmd recover-account idm_admin --from-environment >/dev/null
 ```
 
