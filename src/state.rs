@@ -10,6 +10,8 @@ pub struct Group {
     #[serde(default = "default_true")]
     pub present: bool,
     pub members: Vec<String>,
+    #[serde(default = "default_true")]
+    pub overwrite_members: bool,
 }
 
 #[derive(Debug, Deserialize)]
