@@ -85,9 +85,9 @@ fn all_tracked_entities(state: &State) -> Result<Vec<String>> {
 }
 
 macro_rules! update_attrs {
-    ($kanidm_client:expr, $endpoint:expr, $existing:expr, $name:expr, [ $( $key:literal : $value:expr ),*, ]) => {
+    ($kanidm_client:expr, $endpoint:expr, $existing:expr, $name:expr, $append:expr, [ $( $key:literal : $value:expr ),*, ]) => {
         $(
-            $kanidm_client.update_entity_attrs($endpoint, $existing, $name, $key, $value, false)?;
+            $kanidm_client.update_entity_attrs($endpoint, $existing, $name, $key, $value, $append)?;
         )*
     };
 }
@@ -156,7 +156,7 @@ fn sync_persons(
                 existing_persons.extend(kanidm_client.get_entities(ENDPOINT_PERSON)?);
             }
 
-            update_attrs!(kanidm_client, ENDPOINT_PERSON, &existing_persons, &name, [
+            update_attrs!(kanidm_client, ENDPOINT_PERSON, &existing_persons, &name, false, [
                 "displayname": vec![person.display_name.clone()],
                 "legalname": person.legal_name.clone().map_or_else(Vec::new, |x| vec![x]),
                 "mail": person.mail_addresses.clone().unwrap_or_else(Vec::new),
@@ -400,18 +400,13 @@ fn main() -> Result<()> {
 
     sync_groups(&state, &kanidm_client, &mut existing_groups, &preexisting_entity_names)?;
     sync_persons(&state, &kanidm_client, &mut existing_persons, &preexisting_entity_names)?;
-    sync_oauth2s(
-        &state,
-        &kanidm_client,
-        &mut existing_oauth2s,
-        &mut preexisting_entity_names,
-    )?;
+    sync_oauth2s(&state, &kanidm_client, &mut existing_oauth2s, &preexisting_entity_names)?;
 
     // Sync group members
     log_status("Syncing group members");
     for (name, group) in &state.groups {
         if group.present {
-            update_attrs!(kanidm_client, ENDPOINT_GROUP, &existing_groups, &name, [
+            update_attrs!(kanidm_client, ENDPOINT_GROUP, &existing_groups, &name, !group.overwrite_members, [
                 "member": group.members.clone(),
             ]);
         }

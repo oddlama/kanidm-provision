@@ -124,7 +124,14 @@ E.g. `person1` is allowed, `Person1` or `pErSoN1` are not.
         "person1",
         "person2",
         "group1"
-      ]
+      ],
+      # Optional. Defaults to true if not given.
+      # Whether groups should be appended (false) or overwritten (true).
+      # In append mode, members of this group can be managed manually in kanidm
+      # in addition to members declared here, but removing a member from this state.json
+      # will not remove the corresponding member from the group in kanidm! Removals have
+      # to be reflected manually!
+      "overwrite_members": true
     },
     # ...
   },
