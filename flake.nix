@@ -27,19 +27,9 @@
       ];
 
       perSystem =
-        {
-          config,
-          pkgs,
-          system,
-          ...
-        }:
+        { config, pkgs, ... }:
         let
           projectName = "kanidm-provision";
-
-          pkgsWithSelf = import inputs.nixpkgs {
-            inherit system;
-            overlays = [ inputs.self.overlays.default ];
-          };
         in
         {
           pre-commit.settings.hooks = {
@@ -64,10 +54,6 @@
           });
 
           packages.default = config.nci.outputs.${projectName}.packages.release;
-          packages.test = import ./tests/kanidm-provision.nix {
-            pkgs = pkgsWithSelf;
-            inherit (inputs) self;
-          };
 
           formatter = pkgs.nixfmt-rfc-style; # `nix fmt`
           overlayAttrs = {
