@@ -180,12 +180,15 @@ impl KanidmClient {
 
         if current_values != values {
             if values.is_empty() {
-                log_event("Deleting", &format!("{endpoint}/{name}/_attr/{attr}"));
-                self.client
-                    .delete(format!("{}{endpoint}/{name}/_attr/{attr}", self.url))
-                    .headers(self.idm_admin_headers.clone())
-                    .send()?
-                    .detailed_error_for_status()?;
+                // There is nothing to do if we are appending a empty list
+                if !append {
+                    log_event("Deleting", &format!("{endpoint}/{name}/_attr/{attr}"));
+                    self.client
+                        .delete(format!("{}{endpoint}/{name}/_attr/{attr}", self.url))
+                        .headers(self.idm_admin_headers.clone())
+                        .send()?
+                        .detailed_error_for_status()?;
+                }
             } else if append {
                 log_event("Appending", &format!("{endpoint}/{name}/_attr/{attr}"));
                 self.client

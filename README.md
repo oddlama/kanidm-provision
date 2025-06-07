@@ -131,7 +131,7 @@ E.g. `person1` is allowed, `Person1` or `pErSoN1` are not.
       # in addition to members declared here, but removing a member from this state.json
       # will not remove the corresponding member from the group in kanidm! Removals have
       # to be reflected manually!
-      "overwrite_members": true
+      "overwriteMembers": true
     },
     # ...
   },
