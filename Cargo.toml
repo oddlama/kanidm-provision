@@ -8,9 +8,9 @@ license = "MIT"
 publish = false
 
 [dependencies]
-clap = { version = "4.5.16", features = ["derive"] }
-color-eyre = "0.6.3"
-reqwest = { version = "0.12.7", default-features = false, features = ["json", "rustls-tls-native-roots", "blocking", "multipart"] }
-serde = { version = "1.0.208", features = ["derive"] }
-serde_json = "1.0.125"
-tokio = { version = "1.39.3", features = ["full"] }
+clap = { version = "4.5.39", features = ["derive"] }
+color-eyre = "0.6.5"
+reqwest = { version = "0.12.19", default-features = false, features = ["json", "rustls-tls-native-roots", "blocking", "multipart"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.45.1", features = ["full"] }
