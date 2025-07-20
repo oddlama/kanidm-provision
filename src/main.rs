@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::Parser;
-use client::{KanidmClient, ENDPOINT_GROUP, ENDPOINT_OAUTH2, ENDPOINT_PERSON};
+use client::{KanidmClient, ENDPOINT_GROUP, ENDPOINT_OAUTH2, ENDPOINT_PERSON, ENDPOINT_SERVICE_ACCOUNT};
 use color_eyre::{
     eyre::{bail, eyre, Result},
     owo_colors::OwoColorize,
@@ -163,6 +163,45 @@ fn sync_persons(
             ]);
         } else if existing_persons.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_PERSON, name)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn sync_service_accounts(
+    state: &State,
+    kanidm_client: &KanidmClient,
+    existing_service_accounts: &mut HashMap<String, Value>,
+    preexisting_entity_names: &HashSet<String>,
+) -> Result<()> {
+    log_status("Syncing service accounts");
+    for (name, service_account) in &state.service_accounts {
+        if service_account.present {
+            if !existing_service_accounts.contains_key(name) {
+                if preexisting_entity_names.contains(name) {
+                    bail!("Cannot create service account '{name}' because the name is already in use by another entity!");
+                }
+
+                kanidm_client.create_entity(
+                    ENDPOINT_SERVICE_ACCOUNT,
+                    name,
+                    &json!({ "attrs": {
+                        "name": [ name ],
+                        "displayname": [ service_account.display_name ],
+                        "entry_managed_by": [ service_account.entry_managed_by ]
+                    }}),
+                )?;
+                existing_service_accounts.clear();
+                existing_service_accounts.extend(kanidm_client.get_entities(ENDPOINT_SERVICE_ACCOUNT)?);
+            }
+
+            update_attrs!(kanidm_client, ENDPOINT_SERVICE_ACCOUNT, &existing_service_accounts, &name, false, [
+                "displayname": vec![service_account.display_name.clone()],
+                "entry_managed_by": vec![ service_account.entry_managed_by.clone() ],
+            ]);
+        } else if existing_service_accounts.contains_key(name) {
+            kanidm_client.delete_entity(ENDPOINT_SERVICE_ACCOUNT, name)?;
         }
     }
 
@@ -358,6 +397,7 @@ fn remove_orphaned_entities(
     provisioned_entities: &HashSet<String>,
     existing_groups: &HashMap<String, Value>,
     existing_persons: &HashMap<String, Value>,
+    existing_service_accounts: &HashMap<String, Value>,
     existing_oauth2s: &HashMap<String, Value>,
     tracked_entities: &[String],
 ) -> Result<()> {
@@ -370,6 +410,8 @@ fn remove_orphaned_entities(
             kanidm_client.delete_entity(ENDPOINT_GROUP, orphan)?;
         } else if existing_persons.contains_key(orphan) {
             kanidm_client.delete_entity(ENDPOINT_PERSON, orphan)?;
+        } else if existing_service_accounts.contains_key(orphan) {
+            kanidm_client.delete_entity(ENDPOINT_SERVICE_ACCOUNT, orphan)?;
         } else if existing_oauth2s.contains_key(orphan) {
             kanidm_client.delete_entity(ENDPOINT_OAUTH2, orphan)?;
         }
@@ -388,6 +430,7 @@ fn main() -> Result<()> {
     // Retrieve known entities so we can check for duplicates dynamically
     let mut existing_groups = kanidm_client.get_entities(ENDPOINT_GROUP)?;
     let mut existing_persons = kanidm_client.get_entities(ENDPOINT_PERSON)?;
+    let mut existing_service_accounts = kanidm_client.get_entities(ENDPOINT_SERVICE_ACCOUNT)?;
     let mut existing_oauth2s = kanidm_client.get_entities(ENDPOINT_OAUTH2)?;
 
     let mut preexisting_entity_names = HashSet::new();
@@ -400,6 +443,7 @@ fn main() -> Result<()> {
 
     sync_groups(&state, &kanidm_client, &mut existing_groups, &preexisting_entity_names)?;
     sync_persons(&state, &kanidm_client, &mut existing_persons, &preexisting_entity_names)?;
+    sync_service_accounts(&state, &kanidm_client, &mut existing_service_accounts, &preexisting_entity_names)?;
     sync_oauth2s(&state, &kanidm_client, &mut existing_oauth2s, &preexisting_entity_names)?;
 
     // Sync group members
@@ -437,6 +481,7 @@ fn main() -> Result<()> {
             &provisioned_entities,
             &existing_groups,
             &existing_persons,
+            &existing_service_accounts,
             &existing_oauth2s,
             &tracked_entities,
         )?;
