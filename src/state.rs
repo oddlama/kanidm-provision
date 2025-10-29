@@ -12,6 +12,9 @@ pub struct Group {
     pub members: Vec<String>,
     #[serde(default = "default_true")]
     pub overwrite_members: bool,
+    #[serde(default = "default_false")]
+    pub enable_unix: bool,
+    pub gid_number: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -22,6 +25,10 @@ pub struct Person {
     pub display_name: String,
     pub legal_name: Option<String>,
     pub mail_addresses: Option<Vec<String>>,
+    #[serde(default = "default_false")]
+    pub enable_unix: bool,
+    pub gid_number: Option<u32>,
+    pub login_shell: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

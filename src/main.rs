@@ -161,6 +161,16 @@ fn sync_persons(
                 "legalname": person.legal_name.clone().map_or_else(Vec::new, |x| vec![x]),
                 "mail": person.mail_addresses.clone().unwrap_or_else(Vec::new),
             ]);
+            if person.enable_unix {
+                let mut unix_attrs = HashMap::new();
+                if let Some(gid_number) = &person.gid_number {
+                    unix_attrs.insert("gidnumber", gid_number.clone().into());
+                }
+                if let Some(login_shell) = &person.login_shell {
+                    unix_attrs.insert("loginshell", login_shell.clone().into());
+                }
+                let _ = kanidm_client.update_unix_attrs(ENDPOINT_PERSON, &name, unix_attrs);
+            }
         } else if existing_persons.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_PERSON, name)?;
         }
@@ -409,6 +419,13 @@ fn main() -> Result<()> {
             update_attrs!(kanidm_client, ENDPOINT_GROUP, &existing_groups, &name, !group.overwrite_members, [
                 "member": group.members.clone(),
             ]);
+            if group.enable_unix {
+                let mut unix_attrs = HashMap::new();
+                if let Some(gid_number) = &group.gid_number {
+                    unix_attrs.insert("gidnumber", gid_number.clone().into());
+                }
+                let _ = kanidm_client.update_unix_attrs(ENDPOINT_GROUP, &name, unix_attrs);
+            }
         }
     }
 

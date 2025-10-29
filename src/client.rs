@@ -158,6 +158,21 @@ impl KanidmClient {
             .collect())
     }
 
+    pub fn update_unix_attrs(
+        &self,
+        endpoint: &str,
+        name: &str,
+        values: HashMap<&str, Value>,
+    ) -> Result<()> {
+        self.client
+            .post(format!("{}{endpoint}/{name}/_unix", self.url))
+            .headers(self.idm_admin_headers.clone())
+            .json(&values)
+            .send()?
+            .detailed_error_for_status()?;
+        Ok(())
+    }
+
     pub fn update_entity_attrs(
         &self,
         endpoint: &str,
