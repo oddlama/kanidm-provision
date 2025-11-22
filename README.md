@@ -20,14 +20,14 @@ PRs are of course welcome!
 | 👪 | **Groups**
 | ✅ | Create/delete
 | ✅ | Members
-| ❌ | Unix attributes
+| ✅ | Unix attributes
 | |
 | 🧑 | **Persons**
 | ✅ | Create/delete
 | ✅ | Attributes (displayname, legalname, mail)
 | ❌ | Credentials
 | ❌ | SSH
-| ❌ | Unix attributes
+| ✅ | Unix attributes
 | ❌ | Radius
 | |
 | 🌐 | **Oauth2**
@@ -131,7 +131,11 @@ E.g. `person1` is allowed, `Person1` or `pErSoN1` are not.
       # in addition to members declared here, but removing a member from this state.json
       # will not remove the corresponding member from the group in kanidm! Removals have
       # to be reflected manually!
-      "overwriteMembers": true
+      "overwriteMembers": true,
+      # Optional. Defaults to false if not given.
+      "enableUnix": true,
+      # Optional.
+      "gidNumber": 1234
     },
     # ...
   },
@@ -151,6 +155,12 @@ E.g. `person1` is allowed, `Person1` or `pErSoN1` are not.
         "person1@example.com"
         # ...
       ],
+      # Optional. Defaults to false if not given.
+      "enableUnix": true,
+      # Optional.
+      "gidNumber": 1234,
+      # Optional.
+      "loginShell": "/bin/sh"
     },
     # ...
   },
