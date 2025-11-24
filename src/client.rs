@@ -16,6 +16,7 @@ pub const ENDPOINT_AUTH: &str = "/v1/auth";
 pub const ENDPOINT_GROUP: &str = "/v1/group";
 pub const ENDPOINT_PERSON: &str = "/v1/person";
 pub const ENDPOINT_OAUTH2: &str = "/v1/oauth2";
+pub const ENDPOINT_SERVICE_ACCOUNT: &str = "/v1/service_account";
 
 trait ResponseExt {
     fn get_json_response(self) -> Result<Value>;

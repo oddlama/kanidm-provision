@@ -33,6 +33,15 @@ pub struct Person {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ServiceAccount {
+    #[serde(default = "default_true")]
+    pub present: bool,
+    pub display_name: String,
+    pub entry_managed_by: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClaimMap {
     pub join_type: String,
     pub values_by_group: HashMap<String, Vec<String>>,
@@ -95,6 +104,7 @@ pub struct Systems {
 pub struct State {
     pub groups: HashMap<String, Group>,
     pub persons: HashMap<String, Person>,
+    pub service_accounts: HashMap<String, ServiceAccount>,
     pub systems: Systems,
 }
 
