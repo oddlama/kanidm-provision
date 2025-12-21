@@ -237,6 +237,66 @@ impl KanidmClient {
         Ok(())
     }
 
+    pub fn update_ssh_keys(
+        &self,
+        existing_entities: &HashMap<String, Value>,
+        name: &str,
+        keys: Vec<String>,
+    ) -> Result<()> {
+        let current_values = get_value_array("/attrs/ssh_publickey", existing_entities, name)?;
+        
+        if current_values != keys {
+            let current_keys_by_tag: HashMap<String, String> = current_values
+                .iter()
+                .filter_map(|key_str| {
+                    let parts: Vec<&str> = key_str.splitn(2, ": ").collect();
+                    if parts.len() == 2 {
+                        Some((parts[0].to_string(), parts[1].to_string()))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            let new_keys_by_tag: HashMap<String, String> = keys
+                .iter()
+                .filter_map(|key_str| {
+                    let parts: Vec<&str> = key_str.splitn(2, ": ").collect();
+                    if parts.len() == 2 {
+                        Some((parts[0].to_string(), parts[1].to_string()))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            for (tag, _) in current_keys_by_tag.iter() {
+                if !new_keys_by_tag.contains_key(tag) {
+                    log_event("Deleting", &format!("{ENDPOINT_PERSON}/{name}/_ssh_pubkeys/{tag}"));
+                    self.client
+                        .delete(format!("{}{ENDPOINT_PERSON}/{name}/_ssh_pubkeys/{tag}", self.url))
+                        .headers(self.idm_admin_headers.clone())
+                        .send()?
+                        .detailed_error_for_status()?;
+                }
+            }
+
+            for (tag, key_content) in new_keys_by_tag.iter() {
+                if !current_keys_by_tag.contains_key(tag) || current_keys_by_tag.get(tag) != Some(key_content) {
+                    log_event("Adding", &format!("{ENDPOINT_PERSON}/{name}/_ssh_pubkeys"));
+                    self.client
+                        .post(format!("{}{ENDPOINT_PERSON}/{name}/_ssh_pubkeys", self.url))
+                        .headers(self.idm_admin_headers.clone())
+                        .json(&[tag, key_content])
+                        .send()?
+                        .detailed_error_for_status()?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn update_oauth2_attrs(
         &self,
         existing_entities: &HashMap<String, Value>,
