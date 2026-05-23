@@ -74,6 +74,8 @@ pub struct Oauth2System {
     pub allow_insecure_client_disable_pkce: bool,
     #[serde(default = "default_false")]
     pub prefer_short_username: bool,
+    #[serde(default = "default_false")]
+    pub consent_prompt_enable: bool,
     #[serde(default)]
     pub scope_maps: HashMap<String, Vec<String>>,
     #[serde(default)]
