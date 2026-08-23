@@ -173,6 +173,30 @@ impl KanidmClient {
         Ok(())
     }
 
+    /// Adds the `account_policy` class to a group, which is what makes the
+    /// policy attributes settable at all. Kanidm exposes no way to ask whether
+    /// policy is enabled beyond the class being present, so this checks the
+    /// class list and does nothing when it already is.
+    ///
+    /// Returns whether the class was added, so the caller can avoid re-reading
+    /// every group when it was not.
+    pub fn enable_account_policy(&self, existing_entities: &HashMap<String, Value>, name: &str) -> Result<bool> {
+        let classes = get_value_array("/attrs/class", existing_entities, name)?;
+        if classes.iter().any(|x| x == "account_policy") {
+            return Ok(false);
+        }
+
+        log_event("Enabling account policy on", &format!("{ENDPOINT_GROUP}/{name}"));
+        self.client
+            .post(format!("{}{ENDPOINT_GROUP}/{name}/_attr/class", self.url))
+            .headers(self.idm_admin_headers.clone())
+            .json(&["account_policy"])
+            .send()?
+            .detailed_error_for_status()?;
+
+        Ok(true)
+    }
+
     pub fn update_entity_attrs(
         &self,
         endpoint: &str,

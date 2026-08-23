@@ -84,6 +84,14 @@ fn all_tracked_entities(state: &State) -> Result<Vec<String>> {
     Ok(entity_names.keys().cloned().collect())
 }
 
+/// Renders an optional policy value as the attribute value list kanidm expects:
+/// one element when set, and empty when not — which `update_entity_attrs` turns
+/// into a delete, so clearing a field in the state file clears it on the server
+/// rather than leaving the previous value in place.
+fn optional<T: ToString>(value: Option<T>) -> Vec<String> {
+    value.map(|x| x.to_string()).into_iter().collect()
+}
+
 macro_rules! update_attrs {
     ($kanidm_client:expr, $endpoint:expr, $existing:expr, $name:expr, $append:expr, [ $( $key:literal : $value:expr ),*, ]) => {
         $(
@@ -427,6 +435,36 @@ fn main() -> Result<()> {
                 let _ = kanidm_client.update_unix_attrs(ENDPOINT_GROUP, &name, unix_attrs);
             }
         }
+    }
+
+    // Sync account policy. This runs after group creation because the policy
+    // attributes live on the group itself, and after member sync because a
+    // policy applies to whoever is in the group when it is evaluated.
+    log_status("Syncing account policies");
+    for (name, group) in &state.groups {
+        if !group.present {
+            continue;
+        }
+        let Some(policy) = &group.account_policy else {
+            continue;
+        };
+
+        // A group that has just gained the class is not in the cached entity map
+        // with its policy attributes, so re-read before diffing against it.
+        if kanidm_client.enable_account_policy(&existing_groups, name)? {
+            existing_groups = kanidm_client.get_entities(ENDPOINT_GROUP)?;
+        }
+
+        update_attrs!(kanidm_client, ENDPOINT_GROUP, &existing_groups, &name, false, [
+            "authsession_expiry": optional(policy.auth_session_expiry),
+            "credential_type_minimum": optional(policy.credential_type_minimum.as_ref()),
+            "auth_password_minimum_length": optional(policy.password_minimum_length),
+            "privilege_expiry": optional(policy.privilege_expiry),
+            "webauthn_attestation_ca_list": optional(policy.webauthn_attestation_ca_list.as_ref()),
+            "allow_primary_cred_fallback": optional(policy.allow_primary_cred_fallback),
+            "limit_search_max_results": optional(policy.limit_search_max_results),
+            "limit_search_max_filter_test": optional(policy.limit_search_max_filter_test),
+        ]);
     }
 
     // Update entity tracking group now that new entities exist.
