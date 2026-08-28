@@ -81,16 +81,26 @@ impl KanidmClient {
             idm_admin_headers: HeaderMap::new(),
         };
 
-        let (session_id, token) = client.auth(
-            "idm_admin",
-            &std::env::var("KANIDM_PROVISION_IDM_ADMIN_TOKEN").context("KANIDM_PROVISION_IDM_ADMIN_TOKEN missing")?,
-        )?;
-        client
-            .idm_admin_headers
-            .insert("X-KANIDM-AUTH-SESSION-ID", HeaderValue::from_str(&session_id)?);
-        client
-            .idm_admin_headers
-            .insert("Authorization", HeaderValue::from_str(&format!("Bearer {token}"))?);
+        // Prefer a service-account API token when provided: it is used directly
+        // as a Bearer token, no interactive auth flow and no idm_admin password
+        // required. Falls back to the historical idm_admin password login.
+        if let Ok(api_token) = std::env::var("KANIDM_PROVISION_API_TOKEN") {
+            client
+                .idm_admin_headers
+                .insert("Authorization", HeaderValue::from_str(&format!("Bearer {api_token}"))?);
+        } else {
+            let (session_id, token) = client.auth(
+                "idm_admin",
+                &std::env::var("KANIDM_PROVISION_IDM_ADMIN_TOKEN")
+                    .context("KANIDM_PROVISION_API_TOKEN or KANIDM_PROVISION_IDM_ADMIN_TOKEN must be set")?,
+            )?;
+            client
+                .idm_admin_headers
+                .insert("X-KANIDM-AUTH-SESSION-ID", HeaderValue::from_str(&session_id)?);
+            client
+                .idm_admin_headers
+                .insert("Authorization", HeaderValue::from_str(&format!("Bearer {token}"))?);
+        }
 
         Ok(client)
     }
