@@ -156,11 +156,19 @@ fn sync_persons(
                 existing_persons.extend(kanidm_client.get_entities(ENDPOINT_PERSON)?);
             }
 
+            let ssh_keys_formatted = if let Some(ref ssh_keys) = person.ssh_public_keys {
+                ssh_keys.iter().map(|ssh_key| format!("{}: {}", ssh_key.tag, ssh_key.key)).collect()
+            } else {
+                Vec::new()
+            };
+
             update_attrs!(kanidm_client, ENDPOINT_PERSON, &existing_persons, &name, false, [
                 "displayname": vec![person.display_name.clone()],
                 "legalname": person.legal_name.clone().map_or_else(Vec::new, |x| vec![x]),
                 "mail": person.mail_addresses.clone().unwrap_or_else(Vec::new),
             ]);
+
+            kanidm_client.update_ssh_keys(&existing_persons, &name, ssh_keys_formatted)?;
             if person.enable_unix {
                 let mut unix_attrs = HashMap::new();
                 if let Some(gid_number) = &person.gid_number {

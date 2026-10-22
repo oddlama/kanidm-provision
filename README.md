@@ -29,7 +29,7 @@ PRs are of course welcome!
 | ✅ | Create/delete
 | ✅ | Attributes (displayname, legalname, mail)
 | ❌ | Credentials
-| ❌ | SSH
+| ✅ | SSH
 | ✅ | Unix attributes
 | ❌ | Radius
 | |
@@ -157,6 +157,16 @@ E.g. `person1` is allowed, `Person1` or `pErSoN1` are not.
       "gidNumber": 1234,
       # Optional.
       "loginShell": "/bin/sh"
+      "sshPublicKeys": [
+        {
+          "tag": "laptop",
+          "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE... person1@example.com"
+        },
+        {
+          "tag": "workstation",
+          "key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ... person1@work.com"
+        }
+      ]      
     },
     # ...
   },

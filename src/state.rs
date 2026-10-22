@@ -19,6 +19,13 @@ pub struct Group {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SshPublicKey {
+    pub tag: String,
+    pub key: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Person {
     #[serde(default = "default_true")]
     pub present: bool,
@@ -29,6 +36,7 @@ pub struct Person {
     pub enable_unix: bool,
     pub gid_number: Option<u32>,
     pub login_shell: Option<String>,
+    pub ssh_public_keys: Option<Vec<SshPublicKey>>,
 }
 
 #[derive(Debug, Deserialize)]
