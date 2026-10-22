@@ -241,6 +241,7 @@ fn sync_oauth2s(
                     "oauth2_allow_localhost_redirect": Some(oauth2.enable_localhost_redirects.to_string()),
                     "oauth2_jwt_legacy_crypto_enable": Some(oauth2.enable_legacy_crypto.to_string()),
                     "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
+                    "oauth2_consent_prompt_enable": Some(oauth2.consent_prompt_enable.to_string()),
                 ]);
                 kanidm_client.update_oauth2_attrs(existing_oauth2s, name, "oauth2_rs_origin", origin_urls)?;
             } else {
@@ -258,6 +259,7 @@ fn sync_oauth2s(
                     "oauth2_allow_insecure_client_disable_pkce": Some(oauth2.allow_insecure_client_disable_pkce.to_string()),
                     "oauth2_jwt_legacy_crypto_enable": Some(oauth2.enable_legacy_crypto.to_string()),
                     "oauth2_prefer_short_username": Some(oauth2.prefer_short_username.to_string()),
+                    "oauth2_consent_prompt_enable": Some(oauth2.consent_prompt_enable.to_string()),
                 ]);
                 kanidm_client.update_oauth2_attrs(existing_oauth2s, name, "oauth2_rs_origin", origin_urls)?;
             }
