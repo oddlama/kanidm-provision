@@ -122,6 +122,10 @@ fn sync_groups(
                 existing_groups.clear();
                 existing_groups.extend(kanidm_client.get_entities(ENDPOINT_GROUP)?);
             }
+
+            update_attrs!(kanidm_client, ENDPOINT_GROUP, &existing_groups, &name, false, [
+                "entry_managed_by": group.entry_managed_by.clone().map_or_else(Vec::new, |x| vec![x]),
+            ]);
         } else if existing_groups.contains_key(name) {
             kanidm_client.delete_entity(ENDPOINT_GROUP, name)?;
         }

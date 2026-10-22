@@ -15,6 +15,7 @@ pub struct Group {
     #[serde(default = "default_false")]
     pub enable_unix: bool,
     pub gid_number: Option<u32>,
+    pub entry_managed_by: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

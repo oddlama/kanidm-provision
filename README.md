@@ -24,6 +24,7 @@ PRs are of course welcome!
 | ✅ | Create/delete
 | ✅ | Members
 | ✅ | Unix attributes
+| ✅ | Attributes (entry_managed_by)
 | |
 | 🧑 | **Persons**
 | ✅ | Create/delete
@@ -131,7 +132,8 @@ E.g. `person1` is allowed, `Person1` or `pErSoN1` are not.
       # Optional. Defaults to false if not given.
       "enableUnix": true,
       # Optional.
-      "gidNumber": 1234
+      "gidNumber": 1234,
+      "entryManagedBy": "Per Son",
     },
     # ...
   },
