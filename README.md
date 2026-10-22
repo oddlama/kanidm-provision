@@ -54,7 +54,14 @@ Build the utility simply by running:
 Afterwards you can apply a state file to your kanidm instance by executing:
 
 ```bash
-KANIDM_PROVISION_IDM_ADMIN_TOKEN="your-idm-admin-token" \
+# With a service-account API token (recommended; e.g. generated via
+# `kanidm service-account api-token generate --readwrite <account> <label>`
+# on a service account that is member of idm_admins):
+KANIDM_PROVISION_API_TOKEN="your-api-token" \
+  kanidm-provision --url 'https://auth.example.com' --state state.json
+
+# Or with the idm_admin account password (legacy):
+KANIDM_PROVISION_IDM_ADMIN_TOKEN="your-idm-admin-password" \
   kanidm-provision --url 'https://auth.example.com' --state state.json
 ```
 
