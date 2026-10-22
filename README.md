@@ -11,6 +11,9 @@ Two optional patches are provided for kanidm that allow you to:
 - provision oauth2 basic secrets
 - use a specific password when recovering admin account credentials.
 
+Only patchsets for the latest two Kanidm release series are kept in [./patches](./patches)
+due to Kanidm's short support window. Older patchsets remain available in git history.
+
 Currently this tool supports the following provisioning operations which should suffice for basic SSO and OIDC needs.
 PRs are of course welcome!
 
@@ -84,13 +87,6 @@ in the application, you can prevent this from happening by generating new secret
 tr --complement --delete 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkpqrstuvwxyz0123456789' < /dev/urandom | head --bytes 48
 ```
 
-> \[!CAUTION\]
-> If you use a patchset for kanidm 1.5 or older, you need to reset your kanidm
-> database after applying these patches to the kanidm source code. Otherwise,
-> the access control profile will not be updated and any call to the new
-> endpoint will fail! The new patchset will automatically ensure these
-> permissions are set on startup.
-
 ## Provisioning (idm_)admin credentials
 
 The second provided patch is a standalone kanidm patch that adds the ability to
@@ -100,7 +96,7 @@ provisioning tool.
 
 ```bash
 KANIDM_RECOVER_ACCOUNT_PASSWORD_FILE=<(echo V3kACDdwPjYUgYuLdlRfBqeBWf3TyJmv9h0f6CP3E3dv2B4S) \
-  kanidmd recover-account idm_admin --from-environment >/dev/null
+  kanidmd scripting recover-account idm_admin --from-environment >/dev/null
 ```
 
 ## JSON Schema
