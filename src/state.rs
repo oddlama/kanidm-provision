@@ -15,6 +15,24 @@ pub struct Group {
     #[serde(default = "default_false")]
     pub enable_unix: bool,
     pub gid_number: Option<u32>,
+    pub account_policy: Option<AccountPolicy>,
+}
+
+/// Account policy is stored as attributes on a group carrying the
+/// `account_policy` class. Every field is optional, and a field left unset is
+/// removed from the group rather than left alone, so the declared policy is the
+/// whole policy.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountPolicy {
+    pub auth_session_expiry: Option<u32>,
+    pub credential_type_minimum: Option<String>,
+    pub password_minimum_length: Option<u32>,
+    pub privilege_expiry: Option<u32>,
+    pub webauthn_attestation_ca_list: Option<String>,
+    pub allow_primary_cred_fallback: Option<bool>,
+    pub limit_search_max_results: Option<u32>,
+    pub limit_search_max_filter_test: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
