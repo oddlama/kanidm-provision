@@ -2,6 +2,7 @@
 
 use std::{
     collections::{HashMap, HashSet},
+    net::SocketAddr,
     path::PathBuf,
 };
 
@@ -46,6 +47,10 @@ struct Cli {
     /// DANGEROUS! Accept invalid TLS certificates, e.g. for testing instances.
     #[arg(long)]
     accept_invalid_certs: bool,
+
+    /// Override DNS for the URL hostname and bypass proxies, keeping TLS validation against the URL hostname.
+    #[arg(long)]
+    connect_to: Option<SocketAddr>,
 
     /// Do not automatically remove orphaned entities that were previously provisioned
     /// but have since been removed from the state file. Usually this works by assigning
@@ -393,7 +398,7 @@ fn main() -> Result<()> {
     let args = Cli::parse();
     let state = State::new(args.state)?;
     let tracked_entities = all_tracked_entities(&state)?;
-    let kanidm_client = KanidmClient::new(&args.url, args.accept_invalid_certs)?;
+    let kanidm_client = KanidmClient::new(&args.url, args.accept_invalid_certs, args.connect_to)?;
 
     // Retrieve known entities so we can check for duplicates dynamically
     let mut existing_groups = kanidm_client.get_entities(ENDPOINT_GROUP)?;

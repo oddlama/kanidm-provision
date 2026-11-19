@@ -58,6 +58,8 @@ KANIDM_PROVISION_IDM_ADMIN_TOKEN="your-idm-admin-token" \
   kanidm-provision --url 'https://auth.example.com' --state state.json
 ```
 
+Use `--connect-to IP:PORT` with a hostname in `--url` to override DNS and bypass HTTP proxies while keeping TLS validation against the URL hostname. An explicit port in `--url` takes precedence.
+
 ## Orphan removal
 
 This tool automatically adds all created entities to a tracking group so
