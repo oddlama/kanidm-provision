@@ -191,6 +191,12 @@ impl KanidmClient {
                 .collect();
             current_values.sort_unstable();
             values.sort_unstable();
+            if append {
+                values.retain(|value| current_values.binary_search(value).is_err());
+                if values.is_empty() {
+                    return Ok(());
+                }
+            }
         }
 
         if current_values != values {
@@ -242,9 +248,11 @@ impl KanidmClient {
         existing_entities: &HashMap<String, Value>,
         name: &str,
         attr: &str,
-        values: Vec<String>,
+        mut values: Vec<String>,
     ) -> Result<()> {
-        let current_values = get_value_array(&format!("/attrs/{attr}"), existing_entities, name)?;
+        let mut current_values = get_value_array(&format!("/attrs/{attr}"), existing_entities, name)?;
+        current_values.sort_unstable();
+        values.sort_unstable();
 
         if current_values != values {
             log_event("Updating", &format!("{ENDPOINT_OAUTH2}/{name} {attr}"));
