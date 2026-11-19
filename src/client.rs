@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, net::SocketAddr, path::Path};
 
 use color_eyre::{
     eyre::{bail, eyre, Context, ContextCompat, OptionExt, Result},
@@ -72,12 +72,16 @@ pub fn get_value_array(attr: &str, existing_entities: &HashMap<String, Value>, n
 }
 
 impl KanidmClient {
-    pub fn new(url: &str, accept_invalid_certs: bool) -> Result<KanidmClient> {
+    pub fn new(url: &str, accept_invalid_certs: bool, connect_to: Option<SocketAddr>) -> Result<KanidmClient> {
+        let mut builder = Client::builder().danger_accept_invalid_certs(accept_invalid_certs);
+        if let Some(address) = connect_to {
+            let url = reqwest::Url::parse(url)?;
+            let host = url.host_str().ok_or_eyre("Kanidm URL has no host")?;
+            builder = builder.no_proxy().resolve(host, address);
+        }
         let mut client = KanidmClient {
             url: url.to_string(),
-            client: Client::builder()
-                .danger_accept_invalid_certs(accept_invalid_certs)
-                .build()?,
+            client: builder.build()?,
             idm_admin_headers: HeaderMap::new(),
         };
 
