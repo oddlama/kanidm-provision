@@ -226,6 +226,15 @@ fn sync_oauth2s(
                 existing_oauth2s.extend(kanidm_client.get_entities(ENDPOINT_OAUTH2)?);
             }
 
+            if let Some(strict) = oauth2.strict_redirect_uri {
+                kanidm_client.update_oauth2_attrs(
+                    existing_oauth2s,
+                    name,
+                    "oauth2_strict_redirect_uri",
+                    vec![strict.to_string()],
+                )?;
+            }
+
             if oauth2.public {
                 if oauth2.allow_insecure_client_disable_pkce {
                     println!(
