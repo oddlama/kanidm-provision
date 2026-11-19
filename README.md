@@ -35,7 +35,7 @@ PRs are of course welcome!
 | |
 | 🌐 | **Oauth2**
 | ✅ | Create/delete (basic, public)
-| ✅ | Attributes (origin url, origin landing, pkce enable, prefer short username)
+| ✅ | Attributes (origin url, origin landing, pkce enable, prefer short username, strict redirect URI matching)
 | ✅* | Basic secret
 | ✅ | Scope maps
 | ✅ | Supplementary scope maps
@@ -178,6 +178,9 @@ E.g. `person1` is allowed, `Person1` or `pErSoN1` are not.
         "originUrl": "https://git.example.com/",
         # Required. Landing page url (for web interface)
         "originLanding": "https://git.example.com/",
+        # Optional. Sets Kanidm's oauth2_strict_redirect_uri attribute.
+        # Omit to leave the server's current setting untouched.
+        "strictRedirectUri": true,
         # Optional. Only works when using the patch. Do not specify otherwise!
         # Will set the basic secret to the contents of the given file. Whitespace will be trimmed from both ends.
         # Only for non-public clients

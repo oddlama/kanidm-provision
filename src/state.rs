@@ -66,6 +66,7 @@ pub struct Oauth2System {
     pub image_file: Option<String>,
     pub origin_url: StringOrStrings,
     pub origin_landing: String,
+    pub strict_redirect_uri: Option<bool>,
     #[serde(default = "default_false")]
     pub enable_localhost_redirects: bool,
     #[serde(default = "default_false")]
